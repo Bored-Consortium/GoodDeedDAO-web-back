@@ -9,6 +9,7 @@ const webAppUrl = 'https://iridescent-brigadeiros-13cf7d.netlify.app';
 
 // Create a bot that uses 'polling' to fetch new updates
 const bot = new TelegramBot(token, {polling: true});
+const app = express();
 
 // Matches "/echo [whatever]"
 bot.onText(/\/echo (.+)/, (msg, match) => {
