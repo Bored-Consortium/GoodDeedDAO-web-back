@@ -16,6 +16,8 @@ app.use(cors())
 
 // Matches "/echo [whatever]"
 bot.onText(/\/echo (.+)/, (msg, match) => {
+    console.log("onText triggered: ", msg);
+
     const chatId = msg.chat.id;
     const resp = match[1]; // the captured "whatever"
 
@@ -26,6 +28,8 @@ bot.onText(/\/echo (.+)/, (msg, match) => {
 // Listen for any kind of message. There are different kinds of
 // messages.
 bot.on('message', async (msg) => {
+    console.log("get message: ", msg);
+
     const chatId = msg.chat.id;
     const text = msg.text;
 
@@ -58,6 +62,8 @@ bot.on('message', async (msg) => {
 });
 
 app.post('/web-data', async (req, res) => {
+    console.log("post triggered: ");
+
     const {queryId, products = [], totalPrice} = req.body;
     try {
         await bot.answerWebAppQuery(queryId, {
