@@ -11,6 +11,9 @@ const webAppUrl = 'https://iridescent-brigadeiros-13cf7d.netlify.app';
 const bot = new TelegramBot(token, {polling: true});
 const app = express();
 
+app.use(express.json());
+app.use(cors())
+
 // Matches "/echo [whatever]"
 bot.onText(/\/echo (.+)/, (msg, match) => {
     const chatId = msg.chat.id;
