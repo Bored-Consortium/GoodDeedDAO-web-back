@@ -1,6 +1,7 @@
 const TelegramBot = require('node-telegram-bot-api');
 const express = require('express');
 const cors = require('cors');
+const dotenv = require('dotenv').config();
 
 
 // replace the value below with the Telegram token you receive from @BotFather
@@ -11,7 +12,7 @@ const webAppUrl = 'https://iridescent-brigadeiros-13cf7d.netlify.app';
 const bot = new TelegramBot(token, {polling: true});
 const app = express();
 
-const PORT = process.env.PROD_PORT;
+let PORT = process.env.PROD_PORT;
 console.log('Listening port: ' + PORT)
 
 app.use(express.json());
