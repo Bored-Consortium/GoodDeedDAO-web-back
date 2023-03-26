@@ -12,28 +12,14 @@ const webAppUrl = 'https://iridescent-brigadeiros-13cf7d.netlify.app';
 const bot = new TelegramBot(token, {polling: true});
 const app = express();
 
-let PORT = process.env.PROD_PORT;
-console.log('Listening port: ' + PORT)
+const PORT = process.env.PROD_PORT;
 
 app.use(express.json());
 app.use(cors())
 
-// Matches "/echo [whatever]"
-bot.onText(/\/echo (.+)/, (msg, match) => {
-    console.log("onText triggered: ", msg);
-
-    const chatId = msg.chat.id;
-    const resp = match[1]; // the captured "whatever"
-
-    // send back the matched "whatever" to the chat
-    //bot.sendMessage(chatId, resp);
-});
-
 // Listen for any kind of message. There are different kinds of
 // messages.
 bot.on('message', async (msg) => {
-    console.log("get message: ", msg);
-
     const chatId = msg.chat.id;
     const text = msg.text;
 
@@ -67,8 +53,6 @@ bot.on('message', async (msg) => {
 });
 
 app.post('/web-data', async (req, res) => {
-    console.log("post triggered: ");
-
     const {queryId, products = [], totalPrice} = req.body;
     try {
         await bot.answerWebAppQuery(queryId, {
