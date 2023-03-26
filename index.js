@@ -55,7 +55,7 @@ bot.on('message', async (msg) => {
 app.post('/web-data', async (req, res) => {
     console.log('THIS IS CONSOLE');
     const {queryId, products = [], totalPrice} = req.body;
-    // try {
+    try {
         await bot.answerWebAppQuery(queryId, {
             type: 'article',
             id: queryId,
@@ -64,10 +64,10 @@ app.post('/web-data', async (req, res) => {
                 message_text: ` Поздравляю с покупкой, вы приобрели товар на сумму ${totalPrice}, ${products.map(item => item.title).join(', ')}`
             }
         })
-        return res.status(200).json({queryId});
-    // } catch (e) {
-    //     return res.status(500).json({queryId});
-    // }
+        return res.status(200).json({res: 0});
+    } catch (e) {
+         return res.status(500).json({queryId});
+    }
 })
 
 app.listen(PORT, () => console.log('server started on PORT ' + PORT))
