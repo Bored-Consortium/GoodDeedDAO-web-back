@@ -11,6 +11,11 @@ const webAppUrl = 'https://iridescent-brigadeiros-13cf7d.netlify.app';
 // Create a bot that uses 'polling' to fetch new updates
 const bot = new TelegramBot(token, {polling: true});
 const app = express();
+app.all('/', function(req, res, next) {
+    res.header("Access-Control-Allow-Origin", "*");
+    res.header("Access-Control-Allow-Headers", "X-Requested-With");
+    next();
+});
 
 const PORT = process.env.PROD_PORT;
 
