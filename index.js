@@ -11,6 +11,9 @@ const webAppUrl = 'https://iridescent-brigadeiros-13cf7d.netlify.app';
 const bot = new TelegramBot(token, {polling: true});
 const app = express();
 
+const PORT = process.env.PROD_PORT;
+console.log('Listening port: ' + PORT)
+
 app.use(express.json());
 app.use(cors())
 
@@ -53,6 +56,7 @@ bot.on('message', async (msg) => {
                 await bot.sendMessage(chatId, 'Спасибо за обращение');
             }, 1000)
         } catch (e) {
+            await bot.sendMessage(chatId, 'Ошибка');
             console.log(e);
         }
     }
@@ -79,7 +83,5 @@ app.post('/web-data', async (req, res) => {
         return res.status(500).json({})
     }
 })
-
-const PORT = 8000;
 
 app.listen(PORT, () => console.log('server started on PORT ' + PORT))
