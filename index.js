@@ -66,7 +66,7 @@ app.post('/web-data', async (req, res) => {
         })
         return res.status(200).json({res: 0});
     } catch (e) {
-         return res.status(500).json({queryId: queryId, error: e.stackTrace});
+         return res.status(500).json({id: queryId, error: e.stackTrace});
     }
 })
 
