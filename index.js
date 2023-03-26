@@ -55,7 +55,7 @@ bot.on('message', async (msg) => {
 app.post('/web-data', async (req, res) => {
     console.log('THIS IS CONSOLE');
     const {queryId, products = [], totalPrice} = req.body;
-    try {
+    // try {
         await bot.answerWebAppQuery(queryId, {
             type: 'article',
             id: queryId,
@@ -65,9 +65,9 @@ app.post('/web-data', async (req, res) => {
             }
         })
         return res.status(200).json({queryId});
-    } catch (e) {
-        return res.status(500).json({queryId});
-    }
+    // } catch (e) {
+    //     return res.status(500).json({queryId});
+    // }
 })
 
 app.listen(PORT, () => console.log('server started on PORT ' + PORT))
