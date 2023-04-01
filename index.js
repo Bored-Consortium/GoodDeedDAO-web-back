@@ -51,7 +51,7 @@ bot.on('message', async (msg) => {
     if (msg?.web_app_data?.data) {
         try {
             const data = JSON.parse(msg.web_app_data?.data);
-            await bot.sendMessage(chatId, 'get some auth data: ' + data?.bot_key + ' data');
+            await bot.sendMessage(chatId, 'get some auth data: ' + data);
             console.log('data: ' + data);
             //await bot.sendMessage(chatId, 'Форма получена');
             //await bot.sendMessage(chatId, 'Ваша страна: ' + data?.country);
