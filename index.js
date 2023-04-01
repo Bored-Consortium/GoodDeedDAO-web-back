@@ -16,6 +16,11 @@ app.all('/', function(req, res, next) {
     res.header("Access-Control-Allow-Headers", "X-Requested-With");
     next();
 });
+app.all('/web-data', function(req, res, next) {
+    res.header("Access-Control-Allow-Origin", "*");
+    res.header("Access-Control-Allow-Headers", "X-Requested-With");
+    next();
+});
 
 const PORT = process.env.PROD_PORT;
 
@@ -38,11 +43,18 @@ bot.on('message', async (msg) => {
     //     })
     // }
 
+    if (msg?.web_app_data?.auth_data) {
+
+    }
+
+    console.log('msg data: ' + msg?.web_app_data?.data);
     if (msg?.web_app_data?.data) {
         try {
             const data = JSON.parse(msg.web_app_data?.data);
-            await bot.sendMessage(chatId, 'Форма получена');
-            await bot.sendMessage(chatId, 'Ваша страна: ' + data?.country);
+            await bot.sendMessage(chatId, 'get some auth data: ' + data?.bot_key + ' data');
+            console.log('data: ' + data);
+            //await bot.sendMessage(chatId, 'Форма получена');
+            //await bot.sendMessage(chatId, 'Ваша страна: ' + data?.country);
 
             setTimeout(async () => {
                 await bot.sendMessage(chatId, 'Спасибо за обращение');
