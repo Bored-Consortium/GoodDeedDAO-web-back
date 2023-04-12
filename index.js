@@ -3,6 +3,13 @@ const express = require('express');
 const cors = require('cors');
 const dotenv = require('dotenv').config();
 
+const sqlite3 = require('sqlite3').verbose();
+
+// Connect to DB
+const db = new sqlite3.Database('data_folder/gooddeeds.db');
+// const db = new sqlite3.Database('gooddeeds.db', sqlite3.OPEN_READWRITE, (err) => {
+//     if (err) return console.error(err.message);
+// });
 
 // replace the value below with the Telegram token you receive from @BotFather
 const token = '6274532073:AAGBd8RzOJgQmmCTHXBkYHsugmYZXNK2XuA';
@@ -11,61 +18,55 @@ const webAppUrl = 'https://iridescent-brigadeiros-13cf7d.netlify.app';
 // Create a bot that uses 'polling' to fetch new updates
 const bot = new TelegramBot(token, {polling: true});
 const app = express();
-app.all('/', function(req, res, next) {
-    res.header("Access-Control-Allow-Origin", "*");
-    res.header("Access-Control-Allow-Headers", "X-Requested-With");
-    next();
-});
-app.all('/web-data', function(req, res, next) {
-    res.header("Access-Control-Allow-Origin", "*");
-    res.header("Access-Control-Allow-Headers", "X-Requested-With");
-    next();
-});
 
 const PORT = process.env.PROD_PORT;
 
 app.use(express.json());
 app.use(cors())
 
-// Listen for any kind of message. There are different kinds of
-// messages.
+// Listen for any kind of message. There are different kinds of messages.
 bot.on('message', async (msg) => {
     const chatId = msg.chat.id;
     const text = msg.text;
 
-    // if (text === '/start') {
-    //     await bot.sendMessage(chatId,'Заполни форму', {
-    //         reply_markup: {
-    //             keyboard: [
-    //                 [{text: 'Открыть бота', web_app: {url: webAppUrl + '/form'}}] //, web_app: {url: webAppUrl + '/form'}
-    //             ]
-    //         }
-    //     })
+    if (!text || !chatId) {
+        console.log('text or chatId in msg is null');
+        return;
+    }
+
+    if (text === '/start') {
+        // Check if user has already been added into db
+
+        await bot.sendMessage(chatId,'hi man', {
+            reply_markup: {
+                resize_keyboard: true,
+                keyboard: [
+                    [
+                        {text: 'О боте'},
+                        {text: 'Мой персонаж'},
+                        {text: 'Добавить доброе дело'}
+                    ]
+                ]
+            }
+        })
+    }
+
+    // if (msg?.web_app_data?.data) {
+    //     try {
+    //         const data = JSON.parse(msg.web_app_data?.data);
+    //         await bot.sendMessage(chatId, 'get some auth data: ' + data);
+    //         console.log('data: ' + data);
+    //         //await bot.sendMessage(chatId, 'Форма получена');
+    //         //await bot.sendMessage(chatId, 'Ваша страна: ' + data?.country);
+    //
+    //         setTimeout(async () => {
+    //             await bot.sendMessage(chatId, 'Спасибо за обращение');
+    //         }, 1000)
+    //     } catch (e) {
+    //         await bot.sendMessage(chatId, 'Ошибка');
+    //         console.log(e);
+    //     }
     // }
-
-    if (msg?.web_app_data?.auth_data) {
-
-    }
-
-    console.log('msg data: ' + msg?.web_app_data?.data);
-    if (msg?.web_app_data?.data) {
-        try {
-            const data = JSON.parse(msg.web_app_data?.data);
-            await bot.sendMessage(chatId, 'get some auth data: ' + data);
-            console.log('data: ' + data);
-            //await bot.sendMessage(chatId, 'Форма получена');
-            //await bot.sendMessage(chatId, 'Ваша страна: ' + data?.country);
-
-            setTimeout(async () => {
-                await bot.sendMessage(chatId, 'Спасибо за обращение');
-            }, 1000)
-        } catch (e) {
-            await bot.sendMessage(chatId, 'Ошибка');
-            console.log(e);
-        }
-    }
-    
-    // send a message to the chat acknowledging receipt of their message
 
 });
 
@@ -87,4 +88,58 @@ app.post('/web-data', async (req, res) => {
     }
 })
 
-app.listen(PORT, () => console.log('server started on PORT ' + PORT))
+app.listen(PORT, () => console.log('server started on PORT ' + PORT));
+
+
+function create_tables () {
+    let qry;
+    qry = `CREATE TABLE IF NOT EXISTS USERS (id_user INTEGER PRIMARY KEY, user_name	TEXT, karma INTEGER, deeds INTEGER, validations INTEGER)`;
+    db.run(qry, [], (err) => {
+        if (err) return console.error(err.message);
+    });
+
+    qry = `CREATE TABLE IF NOT EXISTS DEEDS (id_deed INTEGER PRIMARY KEY, upvote INTEGER, downvote INTEGER, is_validated INTEGER, description TEXT, type TEXT)`;
+    db.run(qry, [], (err) => {
+        if (err) return console.error(err.message);
+    });
+
+    qry = `CREATE TABLE IF NOT EXISTS DEED_BY_USER (id_deed INTEGER, id_user INTEGER)`;
+    db.run(qry, [], (err) => {
+        if (err) return console.error(err.message);
+    });
+}
+
+function select_data_from_table(table) {
+    let qry;
+    qry = 'SELECT * from ?';
+    db.all(qry, [table], (err, rows) => {
+        if (err) return console.error(err.message);
+        rows.forEach((row) => {
+            console.log(row);
+        });
+    });
+}
+
+function update_data() {
+    let qry;
+    qry = 'UPDATE ? SET ? = ? WHERE ? = ?';
+    // Example: 'UPDATE users SET name = ? WHERE id = ?'
+    db.run(qry, [], (err) => {
+        if (err) return console.error(err.message);
+    });
+}
+
+function delete_data(table, field, value) {
+    let qry;
+    qry = 'DELETE FROM ? WHERE ? = ?';
+    // Example: 'DELETE FROM users WHERE id = value';
+    db.run(qry, [table, field, value], (err) => {
+        if (err) return console.error(err.message);
+    });
+}
+
+function drop_table (table) {
+    db.run('DROP TABLE ?', [table], (err) => {
+        if (err) return console.error(err.message);
+    });
+}
