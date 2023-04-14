@@ -2,14 +2,23 @@ const TelegramBot = require('node-telegram-bot-api');
 const express = require('express');
 const cors = require('cors');
 const dotenv = require('dotenv').config();
-
 const sqlite3 = require('sqlite3').verbose();
 
-// Connect to DB
-const db = new sqlite3.Database('data_folder/gooddeeds.db');
+
+const db = new sqlite3.Database('data_folder/gooddeeds.db',(err) => {
+    if (err) {
+        console.log('Could not connect to database', err)
+    } else {
+        console.log('Connected to database')
+    }
+});
+
+create_tables();
 // const db = new sqlite3.Database('gooddeeds.db', sqlite3.OPEN_READWRITE, (err) => {
 //     if (err) return console.error(err.message);
 // });
+
+const start_karma = 10;
 
 // replace the value below with the Telegram token you receive from @BotFather
 const token = '6274532073:AAGBd8RzOJgQmmCTHXBkYHsugmYZXNK2XuA';
@@ -28,6 +37,7 @@ app.use(cors())
 bot.on('message', async (msg) => {
     const chatId = msg.chat.id;
     const text = msg.text;
+    const username = msg.from.username;
 
     if (!text || !chatId) {
         console.log('text or chatId in msg is null');
@@ -36,19 +46,44 @@ bot.on('message', async (msg) => {
 
     if (text === '/start') {
         // Check if user has already been added into db
+        select_row_from_table('USERS', 'id_user', chatId, (row) => {
+            let answer;
+            if (row) {
+                answer = `Hi, ${row.user_name}!`;
+            } else {
+                const table = 'USERS';
+                const fields = `id_user,'user_name','karma','deeds','validations'`;
+                const values = `${chatId},'${username}',${start_karma},0,0`;
 
-        await bot.sendMessage(chatId,'hi man', {
-            reply_markup: {
-                resize_keyboard: true,
-                keyboard: [
-                    [
-                        {text: 'О боте'},
-                        {text: 'Мой персонаж'},
-                        {text: 'Добавить доброе дело'}
-                    ]
-                ]
+                insert_data(table, fields, values);
+                answer = 'Well cum';
             }
-        })
+
+            // await bot.sendMessage(chatId, answer, {
+            //     reply_markup: {
+            //         resize_keyboard: true,
+            //         keyboard: [
+            //             [
+            //                 {text: 'О боте'},
+            //                 {text: 'Мой персонаж'},
+            //                 {text: 'Добавить доброе дело'}
+            //             ]
+            //         ]
+            //     }
+            // });
+            bot.sendMessage(chatId, answer, {
+                reply_markup: {
+                    resize_keyboard: true,
+                    keyboard: [
+                        [
+                            {text: 'О боте'},
+                            {text: 'Мой персонаж'},
+                            {text: 'Добавить доброе дело'}
+                        ]
+                    ]
+                }
+            });
+        });
     }
 
     // if (msg?.web_app_data?.data) {
@@ -117,6 +152,22 @@ function select_data_from_table(table) {
         rows.forEach((row) => {
             console.log(row);
         });
+    });
+}
+
+function select_row_from_table(table, conclusion, value, callback) {
+    const qry = `SELECT * FROM ${table} WHERE ${conclusion}=${value}`;
+    db.get(qry, [], (err, r) => {
+        if (err) return console.error(err.message);
+        callback(r);
+    });
+}
+
+function insert_data(table, fields, values) {
+    let qry;
+    qry = `INSERT INTO ${table} (${fields}) VALUES(${values})`;
+    db.run(qry, [], (err) => {
+        if (err) return console.error(err.message);
     });
 }
 
