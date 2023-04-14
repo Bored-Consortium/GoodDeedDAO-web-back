@@ -45,45 +45,7 @@ bot.on('message', async (msg) => {
     }
 
     if (text === '/start') {
-        // Check if user has already been added into db
-        select_row_from_table('USERS', 'id_user', chatId, (row) => {
-            let answer;
-            if (row) {
-                answer = `Hi, ${row.user_name}!`;
-            } else {
-                const table = 'USERS';
-                const fields = `id_user,'user_name','karma','deeds','validations'`;
-                const values = `${chatId},'${username}',${start_karma},0,0`;
-
-                insert_data(table, fields, values);
-                answer = 'Well cum';
-            }
-
-            // await bot.sendMessage(chatId, answer, {
-            //     reply_markup: {
-            //         resize_keyboard: true,
-            //         keyboard: [
-            //             [
-            //                 {text: 'О боте'},
-            //                 {text: 'Мой персонаж'},
-            //                 {text: 'Добавить доброе дело'}
-            //             ]
-            //         ]
-            //     }
-            // });
-            bot.sendMessage(chatId, answer, {
-                reply_markup: {
-                    resize_keyboard: true,
-                    keyboard: [
-                        [
-                            {text: 'О боте'},
-                            {text: 'Мой персонаж'},
-                            {text: 'Добавить доброе дело'}
-                        ]
-                    ]
-                }
-            });
-        });
+        cmd_handler_start(chatId, username);
     }
 
     // if (msg?.web_app_data?.data) {
@@ -125,6 +87,36 @@ app.post('/web-data', async (req, res) => {
 
 app.listen(PORT, () => console.log('server started on PORT ' + PORT));
 
+
+function cmd_handler_start(chatId, username) {
+    select_row_from_table('USERS', 'id_user', chatId, (row) => {
+        let answer;
+        if (row) {
+            answer = `Hi, ${row.user_name}!`;
+        } else {
+            const table = 'USERS';
+            const fields = `id_user,'user_name','karma','deeds','validations'`;
+            const values = `${chatId},'${username}',${start_karma},0,0`;
+
+            insert_data(table, fields, values);
+            answer = 'Well cum';
+        }
+
+        // await bot.sendMessage(chatId, answer, {
+        bot.sendMessage(chatId, answer, {
+            reply_markup: {
+                resize_keyboard: true,
+                keyboard: [
+                    [
+                        {text: 'О боте'},
+                        {text: 'Мой персонаж'},
+                        {text: 'Добавить доброе дело'}
+                    ]
+                ]
+            }
+        }).then();
+    });
+}
 
 function create_tables () {
     let qry;
