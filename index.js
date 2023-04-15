@@ -46,6 +46,10 @@ bot.on('message', async (msg) => {
 
     if (text === '/start') {
         cmd_handler_start(chatId, username);
+    } else if (text === '/help' || text === 'О боте') {
+        cmd_handler_info(chatId);
+    } else if (text === '/userinfo' || text === 'Мой персонаж') {
+        cmd_handler_user_info(chatId);
     }
 
     // if (msg?.web_app_data?.data) {
@@ -87,7 +91,6 @@ app.post('/web-data', async (req, res) => {
 
 app.listen(PORT, () => console.log('server started on PORT ' + PORT));
 
-
 function cmd_handler_start(chatId, username) {
     select_row_from_table('USERS', 'id_user', chatId, (row) => {
         let answer;
@@ -118,6 +121,41 @@ function cmd_handler_start(chatId, username) {
     });
 }
 
+function cmd_handler_info(chatId) {
+    const answer = `I'm ZovDobra bot. Let's make this world dobrim again!`;
+    bot.sendMessage(chatId, answer, {
+        reply_markup: {
+            resize_keyboard: true,
+            keyboard: [
+                [
+                    {text: 'О боте'},
+                    {text: 'Мой персонаж'},
+                    {text: 'Добавить доброе дело'}
+                ]
+            ]
+        }
+    }).then();
+}
+
+function cmd_handler_user_info(chatId) {
+    select_row_from_table('USERS', 'id_user', chatId, (row) => {
+        const answer =
+            `Твоя карма: ${row.karma} \nДобрые дела: ${row.deeds} \nВалидации: ${row.validations}`;
+
+        bot.sendMessage(chatId, answer, { // await ???
+            reply_markup: {
+                resize_keyboard: true,
+                keyboard: [
+                    [
+                        {text: 'О боте'},
+                        {text: 'Мой персонаж'},
+                        {text: 'Добавить доброе дело'}
+                    ]
+                ]
+            }
+        }).then();
+    });
+}
 function create_tables () {
     let qry;
     qry = `CREATE TABLE IF NOT EXISTS USERS (id_user INTEGER PRIMARY KEY, user_name	TEXT, karma INTEGER, deeds INTEGER, validations INTEGER)`;
