@@ -19,7 +19,7 @@ create_tables();
 // });
 
 const start_karma = 10;
-
+const groupId = -1001952022933;
 // replace the value below with the Telegram token you receive from @BotFather
 const token = '6274532073:AAGBd8RzOJgQmmCTHXBkYHsugmYZXNK2XuA';
 const webAppUrl = 'https://iridescent-brigadeiros-13cf7d.netlify.app';
@@ -35,13 +35,19 @@ app.use(cors())
 
 // Listen for any kind of message. There are different kinds of messages.
 bot.on('message', async (msg) => {
+    let photo_id;
     const chatId = msg.chat.id;
     const text = msg.text;
     const username = msg.from.username;
 
-    if (!text || !chatId) {
-        console.log('text or chatId in msg is null');
+    if (!chatId) {
+        console.log('chatId in msg is null');
         return;
+    }
+
+    if (msg.photo) {
+        console.log(`Gettin' photo id`);
+        photo_id = msg.photo[msg.photo.length - 1].file_id;
     }
 
     if (text === '/start') {
@@ -50,8 +56,16 @@ bot.on('message', async (msg) => {
         cmd_handler_info(chatId);
     } else if (text === '/userinfo' || text === 'Мой персонаж') {
         cmd_handler_user_info(chatId);
+    } else if (text === '/adddeed' || text === 'Добавить доброе дело') {
+        cmd_handler_add_deed(chatId);
+    } else if (text === '/back' || text === 'Назад') {
+        cmd_handler_back(chatId);
+    } else if (text === '/addphoto' || text === 'Фото') {
+        cmd_handler_add_photo(chatId);
+    } else if (photo_id) {
+        console.log(`tryin' to handle photo`);
+        await handler_photo_received(username, photo_id);
     }
-
     // if (msg?.web_app_data?.data) {
     //     try {
     //         const data = JSON.parse(msg.web_app_data?.data);
@@ -156,6 +170,72 @@ function cmd_handler_user_info(chatId) {
         }).then();
     });
 }
+
+function cmd_handler_add_deed(chatId) {
+    const answer = `Выбери тип доброго дела`;
+    bot.sendMessage(chatId, answer, {
+        reply_markup: {
+            resize_keyboard: true,
+            keyboard: [
+                [
+                    {text: 'Назад'},
+                    {text: 'Фото'},
+                    {text: 'Видео'}
+                ]
+            ]
+        }
+    }).then();
+}
+
+function cmd_handler_back(chatId) {
+    const answer = `Вы перешли в основное меню`;
+    bot.sendMessage(chatId, answer, {
+        reply_markup: {
+            resize_keyboard: true,
+            keyboard: [
+                [
+                    {text: 'О боте'},
+                    {text: 'Мой персонаж'},
+                    {text: 'Добавить доброе дело'}
+                ]
+            ]
+        }
+    }).then();
+}
+
+function cmd_handler_add_photo(chatId) {
+    const answer = `Пришли мне фотографию`;
+    bot.sendMessage(chatId, answer, {
+        reply_markup: {
+            resize_keyboard: true,
+            keyboard: [[]]
+        }
+    }).then();
+}
+
+async function handler_photo_received(username, photo_id) {
+    const answer = `Пользователь ${username} прислал новое доброе дело! Валидаторы всех стран, объядиняйтесь!`;
+
+    await bot.sendPhoto(groupId, photo_id, {
+        caption: answer,
+        reply_markup: {
+            resize_keyboard: true,
+            inline_keyboard: [
+                [
+                    {text: 'Дело доброе', callback_data: `ghbdtn`},
+                    {text: 'Не очень доброе', callback_data: `ghbdtn`}
+                ]
+            ]
+        }
+    }).then(
+            //bot.sendMessage(groupId, `Это доброе дело?`, () => {});
+    );
+
+}
+
+
+
+// Database
 function create_tables () {
     let qry;
     qry = `CREATE TABLE IF NOT EXISTS USERS (id_user INTEGER PRIMARY KEY, user_name	TEXT, karma INTEGER, deeds INTEGER, validations INTEGER)`;
