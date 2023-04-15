@@ -95,12 +95,32 @@ bot.on('callback_query', function onCallbackQuery(callbackQuery) {
     let photo_id;
     if (msg.photo) {
         photo_id = msg.photo[msg.photo.length - 1].file_id;
-        //console.log(`photo_id: `, photo_id);
     }
 
+    // Add deed to db
+    const value = `'${photo_id}'`;
+    select_row_from_table('DEEDS', 'id_deed', value, (row) => {
+        if (!row) {
+            const text = `This is a sample text`;
+            const table = 'DEEDS';
+            const fields = `id_deed,upvote,downvote,is_validated,description,type`;
+            const values = `'${photo_id}',0,0,0,'${text}',1`;
+
+            insert_data(table, fields, values);
+
+            // Добавление доброго дела в табличку DEED_BY_USER
+        }
+    });
+
+    const table = `DEEDS`;
+    const conclusion = `id_deed`;
     if (action === 'yes') {
+        const column = `upvote`;
+        update_data(table, column, conclusion, value);
         console.log('You hit button yes');
     } else if (action === `no`) {
+        const column = `downvote`;
+        update_data(table, column, conclusion, value);
         console.log('You hit button no');
     } else {
         console.log('You hit');
@@ -234,41 +254,6 @@ function cmd_handler_add_photo(chatId) {
 async function handler_photo_received(chatId, username, photo_id) {
     const answer = `Пользователь @${username} прислал новое доброе дело! Валидаторы всех стран, объядиняйтесь!`;
 
-    // Add deed to db
-    const value = `'photo_id'`
-    select_row_from_table('DEEDS', 'id_deed', value, (row) => {
-        let answer;
-        if (row) {
-            answer = `Вы уже отправляли это доброе дело`;
-        } else {
-            const text = `This is a sample text`;
-            const table = 'DEEDS';
-            const fields = `id_deed,upvote,downvote,is_validated,description,type`;
-            const values = `'${photo_id}',0,0,0,'${text}',1`;
-
-            console.log();
-
-            insert_data(table, fields, values);
-            answer = 'Доброе дело добавлено';
-
-            // Добавление доброго дела в табличку DEED_BY_USER
-        }
-
-        // await bot.sendMessage(chatId, answer, {
-        bot.sendMessage(chatId, answer, {
-            reply_markup: {
-                resize_keyboard: true,
-                keyboard: [
-                    [
-                        {text: 'О боте'},
-                        {text: 'Мой персонаж'},
-                        {text: 'Добавить доброе дело'}
-                    ]
-                ]
-            }
-        }).then();
-    });
-
     await bot.sendPhoto(groupId, photo_id, {
         caption: answer,
         reply_markup: {
@@ -334,9 +319,10 @@ function insert_data(table, fields, values) {
     });
 }
 
-function update_data() {
+function update_data(table, column, conclusion, value) {
     let qry;
-    qry = 'UPDATE ? SET ? = ? WHERE ? = ?';
+    qry = `UPDATE ${table} SET ${column} = ${column}+1 WHERE ${conclusion}=${value};`;
+    console.log(qry);
     // Example: 'UPDATE users SET name = ? WHERE id = ?'
     db.run(qry, [], (err) => {
         if (err) return console.error(err.message);
