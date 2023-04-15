@@ -63,8 +63,7 @@ bot.on('message', async (msg) => {
     } else if (text === '/addphoto' || text === 'Фото') {
         cmd_handler_add_photo(chatId);
     } else if (photo_id) {
-        console.log(`tryin' to handle photo`);
-        await handler_photo_received(username, photo_id);
+        await handler_photo_received(chatId, username, photo_id);
     }
     // if (msg?.web_app_data?.data) {
     //     try {
@@ -84,6 +83,30 @@ bot.on('message', async (msg) => {
     // }
 
 });
+
+bot.on('callback_query', function onCallbackQuery(callbackQuery) {
+    const action = callbackQuery.data;
+    const msg = callbackQuery.message;
+    const opts = {
+        chat_id: msg.chat.id,
+        message_id: msg.message_id,
+    };
+
+    let photo_id;
+    if (msg.photo) {
+        photo_id = msg.photo[msg.photo.length - 1].file_id;
+        //console.log(`photo_id: `, photo_id);
+    }
+
+    if (action === 'yes') {
+        console.log('You hit button yes');
+    } else if (action === `no`) {
+        console.log('You hit button no');
+    } else {
+        console.log('You hit');
+    }
+});
+
 
 app.post('/web-data', async (req, res) => {
     console.log('THIS IS CONSOLE');
@@ -109,7 +132,7 @@ function cmd_handler_start(chatId, username) {
     select_row_from_table('USERS', 'id_user', chatId, (row) => {
         let answer;
         if (row) {
-            answer = `Hi, ${row.user_name}!`;
+            answer = `С возвращением, ${row.user_name}!`;
         } else {
             const table = 'USERS';
             const fields = `id_user,'user_name','karma','deeds','validations'`;
@@ -205,16 +228,46 @@ function cmd_handler_back(chatId) {
 
 function cmd_handler_add_photo(chatId) {
     const answer = `Пришли мне фотографию`;
-    bot.sendMessage(chatId, answer, {
-        reply_markup: {
-            resize_keyboard: true,
-            keyboard: [[]]
-        }
-    }).then();
+    bot.sendMessage(chatId, answer, {}).then();
 }
 
-async function handler_photo_received(username, photo_id) {
-    const answer = `Пользователь ${username} прислал новое доброе дело! Валидаторы всех стран, объядиняйтесь!`;
+async function handler_photo_received(chatId, username, photo_id) {
+    const answer = `Пользователь @${username} прислал новое доброе дело! Валидаторы всех стран, объядиняйтесь!`;
+
+    // Add deed to db
+    const value = `'photo_id'`
+    select_row_from_table('DEEDS', 'id_deed', value, (row) => {
+        let answer;
+        if (row) {
+            answer = `Вы уже отправляли это доброе дело`;
+        } else {
+            const text = `This is a sample text`;
+            const table = 'DEEDS';
+            const fields = `id_deed,upvote,downvote,is_validated,description,type`;
+            const values = `'${photo_id}',0,0,0,'${text}',1`;
+
+            console.log();
+
+            insert_data(table, fields, values);
+            answer = 'Доброе дело добавлено';
+
+            // Добавление доброго дела в табличку DEED_BY_USER
+        }
+
+        // await bot.sendMessage(chatId, answer, {
+        bot.sendMessage(chatId, answer, {
+            reply_markup: {
+                resize_keyboard: true,
+                keyboard: [
+                    [
+                        {text: 'О боте'},
+                        {text: 'Мой персонаж'},
+                        {text: 'Добавить доброе дело'}
+                    ]
+                ]
+            }
+        }).then();
+    });
 
     await bot.sendPhoto(groupId, photo_id, {
         caption: answer,
@@ -222,15 +275,14 @@ async function handler_photo_received(username, photo_id) {
             resize_keyboard: true,
             inline_keyboard: [
                 [
-                    {text: 'Дело доброе', callback_data: `ghbdtn`},
-                    {text: 'Не очень доброе', callback_data: `ghbdtn`}
+                    {text: 'Дело доброе', callback_data: `yes`},
+                    {text: 'Не очень доброе', callback_data: `no`}
                 ]
             ]
         }
-    }).then(
-            //bot.sendMessage(groupId, `Это доброе дело?`, () => {});
-    );
-
+    }, (newValidation) => {
+        console.log(newValidation);
+    }).then();
 }
 
 
@@ -243,7 +295,7 @@ function create_tables () {
         if (err) return console.error(err.message);
     });
 
-    qry = `CREATE TABLE IF NOT EXISTS DEEDS (id_deed INTEGER PRIMARY KEY, upvote INTEGER, downvote INTEGER, is_validated INTEGER, description TEXT, type TEXT)`;
+    qry = `CREATE TABLE IF NOT EXISTS DEEDS (id_deed TEXT PRIMARY KEY, upvote INTEGER, downvote INTEGER, is_validated INTEGER, description TEXT, type TEXT)`;
     db.run(qry, [], (err) => {
         if (err) return console.error(err.message);
     });
@@ -276,6 +328,7 @@ function select_row_from_table(table, conclusion, value, callback) {
 function insert_data(table, fields, values) {
     let qry;
     qry = `INSERT INTO ${table} (${fields}) VALUES(${values})`;
+    console.log(qry);
     db.run(qry, [], (err) => {
         if (err) return console.error(err.message);
     });
