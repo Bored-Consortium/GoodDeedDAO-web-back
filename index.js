@@ -33,7 +33,6 @@ const PORT = process.env.PROD_PORT;
 app.use(express.json());
 app.use(cors())
 
-// Listen for any kind of message. There are different kinds of messages.
 bot.on('message', async (msg) => {
     let photo_id;
     const chatId = msg.chat.id;
@@ -65,24 +64,8 @@ bot.on('message', async (msg) => {
     } else if (photo_id) {
         await handler_photo_received(chatId, username, photo_id);
     }
-    // if (msg?.web_app_data?.data) {
-    //     try {
-    //         const data = JSON.parse(msg.web_app_data?.data);
-    //         await bot.sendMessage(chatId, 'get some auth data: ' + data);
-    //         console.log('data: ' + data);
-    //         //await bot.sendMessage(chatId, 'Форма получена');
-    //         //await bot.sendMessage(chatId, 'Ваша страна: ' + data?.country);
-    //
-    //         setTimeout(async () => {
-    //             await bot.sendMessage(chatId, 'Спасибо за обращение');
-    //         }, 1000)
-    //     } catch (e) {
-    //         await bot.sendMessage(chatId, 'Ошибка');
-    //         console.log(e);
-    //     }
-    // }
-
 });
+
 
 bot.on('callback_query', function onCallbackQuery(callbackQuery) {
     const action = callbackQuery.data;
@@ -112,19 +95,31 @@ bot.on('callback_query', function onCallbackQuery(callbackQuery) {
         }
     });
 
-    const table = `DEEDS`;
-    const conclusion = `id_deed`;
-    if (action === 'yes') {
-        const column = `upvote`;
-        update_data(table, column, conclusion, value);
-        console.log('You hit button yes');
-    } else if (action === `no`) {
-        const column = `downvote`;
-        update_data(table, column, conclusion, value);
-        console.log('You hit button no');
-    } else {
-        console.log('You hit');
-    }
+    is_voting_finished(photo_id, (is_voting_finished, upvotes, downvotes) => {
+        if (is_voting_finished) { return; }
+
+        if (action === 'yes' && !is_voting_finished) {
+            update_votes(photo_id, `upvote`);
+            if (upvotes + 1 === 5) {
+                set_voting_finished(photo_id, 1);
+                // add karma
+                // increaseKarma();
+                // send message
+            } else {  }
+
+            console.log('You hit button yes');
+
+        } else if (action === `no` && !is_voting_finished) {
+            update_votes(photo_id, `downvote`);
+            if (downvotes + 1 === 5) {
+                set_voting_finished(photo_id, -1);
+                // send message
+            } else {  }
+            console.log('You hit button no');
+        } else {
+            console.log('You hit');
+        }
+    });
 });
 
 
@@ -147,6 +142,26 @@ app.post('/web-data', async (req, res) => {
 })
 
 app.listen(PORT, () => console.log('server started on PORT ' + PORT));
+
+
+function is_voting_finished(photo_id, callback) {
+    // проверить флаг, завершено ли голосование
+    select_row_from_table('DEEDS', 'id_deed', `'${photo_id}'`, (row) => {
+        console.log(row);
+        if (row) {
+            if (row?.is_validated) {
+                callback(true, row.upvote, row.downvote);
+            } else {
+                callback(false, row.upvote, row.downvote);
+            }
+        }
+    });
+}
+
+function set_voting_finished(id_photo, result) {
+    update_voting_result(id_photo, result);
+}
+
 
 function cmd_handler_start(chatId, username) {
     select_row_from_table('USERS', 'id_user', chatId, (row) => {
@@ -256,6 +271,7 @@ async function handler_photo_received(chatId, username, photo_id) {
 
     await bot.sendPhoto(groupId, photo_id, {
         caption: answer,
+        disable_notification: true,
         reply_markup: {
             resize_keyboard: true,
             inline_keyboard: [
@@ -269,6 +285,8 @@ async function handler_photo_received(chatId, username, photo_id) {
         console.log(newValidation);
     }).then();
 }
+
+
 
 
 
@@ -302,8 +320,8 @@ function select_data_from_table(table) {
     });
 }
 
-function select_row_from_table(table, conclusion, value, callback) {
-    const qry = `SELECT * FROM ${table} WHERE ${conclusion}=${value}`;
+function select_row_from_table(table, condition, value, callback) {
+    const qry = `SELECT * FROM ${table} WHERE ${condition}=${value}`;
     db.get(qry, [], (err, r) => {
         if (err) return console.error(err.message);
         callback(r);
@@ -319,11 +337,20 @@ function insert_data(table, fields, values) {
     });
 }
 
-function update_data(table, column, conclusion, value) {
+function update_votes(id_deed, column) {
     let qry;
-    qry = `UPDATE ${table} SET ${column} = ${column}+1 WHERE ${conclusion}=${value};`;
+    qry = `UPDATE DEEDS SET ${column} = ${column}+1 WHERE id_deed='${id_deed}';`;
     console.log(qry);
     // Example: 'UPDATE users SET name = ? WHERE id = ?'
+    db.run(qry, [], (err) => {
+        if (err) return console.error(err.message);
+    });
+}
+
+function update_voting_result(id_deed, result) {
+    let qry;
+    qry = `UPDATE DEEDS SET is_validated=${result} WHERE id_deed='${id_deed}';`;
+    console.log(qry);
     db.run(qry, [], (err) => {
         if (err) return console.error(err.message);
     });
