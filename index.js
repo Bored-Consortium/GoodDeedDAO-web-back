@@ -85,13 +85,17 @@ bot.on('callback_query', function onCallbackQuery(callbackQuery) {
     select_row_from_table('DEEDS', 'id_deed', value, (row) => {
         if (!row) {
             const text = `This is a sample text`;
-            const table = 'DEEDS';
-            const fields = `id_deed,upvote,downvote,is_validated,description,type`;
-            const values = `'${photo_id}',0,0,0,'${text}',1`;
+            let table = 'DEEDS';
+            let fields = `id_deed,upvote,downvote,is_validated,description,type`;
+            let values = `'${photo_id}',0,0,0,'${text}',1`;
 
             insert_data(table, fields, values);
 
             // Добавление доброго дела в табличку DEED_BY_USER
+            table = `DEED_BY_USER`;
+            fields = `id_user,id_deed`;
+            values = `${opts.chat_id},'${photo_id}'}`;
+            insert_data(table, fields, values);
         }
     });
 
@@ -145,14 +149,13 @@ app.listen(PORT, () => console.log('server started on PORT ' + PORT));
 
 
 function is_voting_finished(photo_id, callback) {
-    // проверить флаг, завершено ли голосование
     select_row_from_table('DEEDS', 'id_deed', `'${photo_id}'`, (row) => {
         console.log(row);
         if (row) {
             if (row?.is_validated) {
-                callback(true, row.upvote, row.downvote);
+                callback(true, row?.upvote, row?.downvote);
             } else {
-                callback(false, row.upvote, row.downvote);
+                callback(false, row?.upvote, row?.downvote);
             }
         }
     });
@@ -303,7 +306,12 @@ function create_tables () {
         if (err) return console.error(err.message);
     });
 
-    qry = `CREATE TABLE IF NOT EXISTS DEED_BY_USER (id_deed INTEGER, id_user INTEGER)`;
+    qry = `CREATE TABLE IF NOT EXISTS DEED_BY_USER (id_user INTEGER, id_deed TEXT)`;
+    db.run(qry, [], (err) => {
+        if (err) return console.error(err.message);
+    });
+
+    qry = `CREATE TABLE IF NOT EXISTS VOTES (id_user INTEGER, id_deed TEXT, vote INTEGER, status INTEGER)`;
     db.run(qry, [], (err) => {
         if (err) return console.error(err.message);
     });
