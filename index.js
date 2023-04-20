@@ -20,7 +20,6 @@ create_tables();
 
 const start_karma = 10;
 const groupId = -1001952022933;
-// replace the value below with the Telegram token you receive from @BotFather
 const token = '6274532073:AAGBd8RzOJgQmmCTHXBkYHsugmYZXNK2XuA';
 const webAppUrl = 'https://iridescent-brigadeiros-13cf7d.netlify.app';
 
@@ -72,12 +71,20 @@ bot.on('message', async (msg) => {
 
 
 bot.on('callback_query', function onCallbackQuery(callbackQuery) {
+    const sender = callbackQuery.from;
     const action = callbackQuery.data;
     const msg = callbackQuery.message;
     const opts = {
         chat_id: msg.chat.id,
         message_id: msg.message_id,
     };
+
+    let res, up = 0, down = 0;
+    if (action === 'yes') {
+        res = 'за это дело'; up = 1;
+    } else {
+        res = 'против этого дела'; down = 1;
+    }
 
     let photo_id, photo_unique_id;
     if (msg.photo) {
@@ -87,14 +94,17 @@ bot.on('callback_query', function onCallbackQuery(callbackQuery) {
     }
 
     is_voting_finished(photo_unique_id, (is_voting_finished, upvotes, downvotes) => {
-        console.log(`is_voting_finished, 90: `, is_voting_finished, `, ups: ${upvotes}, downs: ${downvotes}`);
+        const info = `@${sender.username} проголосовал ${res}. Текущие голоса: ${upvotes + up} "за" и ${downvotes + down} "против"`;
+        bot.sendMessage(groupId, info, {
+            reply_to_message_id: opts.message_id,
+            
+        }).then();
+
         if (is_voting_finished) { return; }
 
         //is_msg_id_null(photo_unique_id, opts.message_id, () => {});
 
-        // get user id by deed
         get_user_id_by_deed(photo_unique_id, (id_user) => {
-            console.log(`id_user, 97: `, id_user);
             if (action === 'yes') {
                 update_votes(photo_unique_id, `upvote`);
 
@@ -122,8 +132,6 @@ bot.on('callback_query', function onCallbackQuery(callbackQuery) {
                 console.log('You hit');
             }
         });
-
-
     });
 });
 
