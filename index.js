@@ -19,7 +19,7 @@ create_tables();
 // });
 
 const start_karma = 10;
-const groupId = -1001952022933;
+const groupId = -1001630744934;
 const token = '6274532073:AAGBd8RzOJgQmmCTHXBkYHsugmYZXNK2XuA';
 const webAppUrl = 'https://iridescent-brigadeiros-13cf7d.netlify.app';
 
@@ -196,8 +196,8 @@ function cmd_handler_start(chatId, username) {
             insert_data(table, fields, values);
             answer = '🤖 Привет! Я, бот Хранитель Добра\n\n' +
                 '🌍 Добро пожаловать в Зов Добра!\n' +
-                '🙏 Здесь мы меняем мир к лучшему\n' +
-                '💫 Держи +10 Karma за твою регистрацию!\n' +
+                '🙏 Здесь мы меняем мир к лучшему\n\n' +
+                '💫 Держи +10 Karma за регистрацию!\n\n' +
                 '⬇️ Выбери дальнейшее действие ⬇️';
         }
 
@@ -237,7 +237,7 @@ function cmd_handler_info(chatId) {
 function cmd_handler_user_info(chatId) {
     select_row_from_table('USERS', 'id_user', chatId, (row) => {
         const answer =
-            `Твоя $Karma: ${row?.karma} \nДобрые дела: ${row?.deeds} \nГолосования: ${row?.validations}`;
+            `Твоя Karma: ${row?.karma} \nДобрые дела: ${row?.deeds} \nГолосования: ${row?.validations}`;
 
         bot.sendMessage(chatId, answer, { // await ???
             reply_markup: {
@@ -294,7 +294,7 @@ function cmd_handler_add_photo(chatId) {
 async function handler_photo_received(chatId, username, photo, caption) {
     const answer = `Пользователь @${username} прислал новое доброе дело! Добрые люди всех стран, объединяйтесь!\n` +
     `\nОпиcание:\n\n` +
-    `__${caption}__`;
+    `${caption}`;
 
     // add deed to
     const value = `'${photo.file_unique_id}'`;
