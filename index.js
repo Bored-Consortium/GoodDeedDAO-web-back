@@ -34,10 +34,13 @@ app.use(express.json());
 app.use(cors())
 
 bot.on('message', async (msg) => {
+
     let photo_id;
     const chatId = msg.chat.id;
     const text = msg.text;
     const username = msg.from.username;
+
+    if (chatId === groupId) { return; }
 
     if (!chatId) {
         console.log('chatId in msg is null');
@@ -53,7 +56,7 @@ bot.on('message', async (msg) => {
         cmd_handler_start(chatId, username);
     } else if (text === '/help' || text === 'О боте') {
         cmd_handler_info(chatId);
-    } else if (text === '/userinfo' || text === 'Мой персонаж') {
+    } else if (text === '/userinfo' || text === 'Мой Аватар') {
         cmd_handler_user_info(chatId);
     } else if (text === '/adddeed' || text === 'Добавить доброе дело') {
         cmd_handler_add_deed(chatId);
@@ -94,7 +97,7 @@ bot.on('callback_query', function onCallbackQuery(callbackQuery) {
             // Добавление доброго дела в табличку DEED_BY_USER
             table = `DEED_BY_USER`;
             fields = `id_user,id_deed`;
-            values = `${opts.chat_id},'${photo_id}'}`;
+            values = `${opts.chat_id},'${photo_id}'`;
             insert_data(table, fields, values);
         }
     });
@@ -177,7 +180,11 @@ function cmd_handler_start(chatId, username) {
             const values = `${chatId},'${username}',${start_karma},0,0`;
 
             insert_data(table, fields, values);
-            answer = 'Well cum';
+            answer = '🤖 Привет! Я, бот Хранитель Добра\n\n' +
+                '🌍 Добро пожаловать в Зов Добра!\n' +
+                '🙏 Здесь мы меняем мир к лучшему\n' +
+                '💫 Держи +10 Karma за твою регистрацию!\n' +
+                '⬇️ Выбери дальнейшее действие ⬇️';
         }
 
         // await bot.sendMessage(chatId, answer, {
@@ -187,7 +194,7 @@ function cmd_handler_start(chatId, username) {
                 keyboard: [
                     [
                         {text: 'О боте'},
-                        {text: 'Мой персонаж'},
+                        {text: 'Мой аватар'},
                         {text: 'Добавить доброе дело'}
                     ]
                 ]
@@ -197,14 +204,15 @@ function cmd_handler_start(chatId, username) {
 }
 
 function cmd_handler_info(chatId) {
-    const answer = `I'm ZovDobra bot. Let's make this world dobrim again!`;
+    const answer = `Я - бот Хранитель Зова Добра. Помогаю людям делать этот Мир добрее!
+                    \n Подробное описание: https://telegra.ph/Pravila-blokchejn-agregatora-dobryh-del-Zov-Dobra-04-05`;
     bot.sendMessage(chatId, answer, {
         reply_markup: {
             resize_keyboard: true,
             keyboard: [
                 [
                     {text: 'О боте'},
-                    {text: 'Мой персонаж'},
+                    {text: 'Мой Аватар'},
                     {text: 'Добавить доброе дело'}
                 ]
             ]
@@ -215,7 +223,7 @@ function cmd_handler_info(chatId) {
 function cmd_handler_user_info(chatId) {
     select_row_from_table('USERS', 'id_user', chatId, (row) => {
         const answer =
-            `Твоя карма: ${row.karma} \nДобрые дела: ${row.deeds} \nВалидации: ${row.validations}`;
+            `Твоя $Karma: ${row?.karma} \nДобрые дела: ${row?.deeds} \nГолосования: ${row?.validations}`;
 
         bot.sendMessage(chatId, answer, { // await ???
             reply_markup: {
@@ -223,7 +231,7 @@ function cmd_handler_user_info(chatId) {
                 keyboard: [
                     [
                         {text: 'О боте'},
-                        {text: 'Мой персонаж'},
+                        {text: 'Мой Аватар'},
                         {text: 'Добавить доброе дело'}
                     ]
                 ]
@@ -256,7 +264,7 @@ function cmd_handler_back(chatId) {
             keyboard: [
                 [
                     {text: 'О боте'},
-                    {text: 'Мой персонаж'},
+                    {text: 'Мой Аватар'},
                     {text: 'Добавить доброе дело'}
                 ]
             ]
