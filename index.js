@@ -34,8 +34,6 @@ app.use(express.json());
 app.use(cors())
 
 bot.on('message', async (msg) => {
-
-    let photo_id;
     const chatId = msg.chat.id;
     const text = msg.text;
     const username = msg.from.username;
@@ -47,9 +45,11 @@ bot.on('message', async (msg) => {
         return;
     }
 
+    let photo;
     if (msg.photo) {
-        console.log(`Gettin' photo id`);
-        photo_id = msg.photo[msg.photo.length - 1].file_id;
+        console.log(`Gettin' photo`);
+        photo = msg.photo[msg.photo.length - 1];
+        //photo_unique_id = msg.photo[msg.photo.length - 1].photo_unique_id;
     }
 
     if (text === '/start') {
@@ -64,9 +64,9 @@ bot.on('message', async (msg) => {
         cmd_handler_back(chatId);
     } else if (text === '/addphoto' || text === 'Фото') {
         cmd_handler_add_photo(chatId);
-    } else if (photo_id) {
+    } else if (photo) {
         const caption = msg.caption;
-        await handler_photo_received(chatId, username, photo_id, caption);
+        await handler_photo_received(chatId, username, photo, caption);
     }
 });
 
@@ -79,54 +79,51 @@ bot.on('callback_query', function onCallbackQuery(callbackQuery) {
         message_id: msg.message_id,
     };
 
-    let photo_id;
+    let photo_id, photo_unique_id;
     if (msg.photo) {
         photo_id = msg.photo[msg.photo.length - 1].file_id;
+        photo_unique_id = msg.photo[msg.photo.length - 1].file_unique_id;
+        console.log(`photo_unique_id: `, photo_unique_id);
     }
 
-    // Add deed to db
-    const value = `'${photo_id}'`;
-    select_row_from_table('DEEDS', 'id_deed', value, (row) => {
-        if (!row) {
-            const text = `This is a sample text`;
-            let table = 'DEEDS';
-            let fields = `id_deed,upvote,downvote,is_validated,description,type`;
-            let values = `'${photo_id}',0,0,0,'${text}',1`;
-
-            insert_data(table, fields, values);
-
-            // Добавление доброго дела в табличку DEED_BY_USER
-            table = `DEED_BY_USER`;
-            fields = `id_user,id_deed`;
-            values = `${opts.chat_id},'${photo_id}'`;
-            insert_data(table, fields, values);
-        }
-    });
-
-    is_voting_finished(photo_id, (is_voting_finished, upvotes, downvotes) => {
+    is_voting_finished(photo_unique_id, (is_voting_finished, upvotes, downvotes) => {
+        console.log(`is_voting_finished, 90: `, is_voting_finished, `, ups: ${upvotes}, downs: ${downvotes}`);
         if (is_voting_finished) { return; }
 
-        if (action === 'yes' && !is_voting_finished) {
-            update_votes(photo_id, `upvote`);
-            if (upvotes + 1 === 5) {
-                set_voting_finished(photo_id, 1);
-                // add karma
-                // increaseKarma();
-                // send message
-            } else {  }
+        //is_msg_id_null(photo_unique_id, opts.message_id, () => {});
 
-            console.log('You hit button yes');
+        // get user id by deed
+        get_user_id_by_deed(photo_unique_id, (id_user) => {
+            console.log(`id_user, 97: `, id_user);
+            if (action === 'yes') {
+                update_votes(photo_unique_id, `upvote`);
 
-        } else if (action === `no` && !is_voting_finished) {
-            update_votes(photo_id, `downvote`);
-            if (downvotes + 1 === 5) {
-                set_voting_finished(photo_id, -1);
-                // send message
-            } else {  }
-            console.log('You hit button no');
-        } else {
-            console.log('You hit');
-        }
+                if (upvotes + 1 === 5) {
+                    set_voting_finished(photo_unique_id, 1);
+                    update_karma(id_user, 50);
+                    // send message
+                    const answer = 'Поздравляю ты сделал Доброе Дело! Я начислил тебе 50 $Karma';
+                    bot.sendMessage(id_user, answer, {}).then();
+                } else {  }
+
+                console.log('You hit button yes');
+
+            } else if (action === `no`) {
+                update_votes(photo_unique_id, `downvote`);
+                if (downvotes + 1 === 5) {
+                    set_voting_finished(photo_id, -1);
+                    update_karma(id_user, 5);
+                    // send message
+                    const answer = 'Сообщество не посчитало это дело достаточно добрым. Я начислил тебе утешительные 5 $Karma!';
+                    bot.sendMessage(id_user, answer, {}).then();
+                } else {  }
+                console.log('You hit button no');
+            } else {
+                console.log('You hit');
+            }
+        });
+
+
     });
 });
 
@@ -168,6 +165,14 @@ function is_voting_finished(photo_id, callback) {
 function set_voting_finished(id_photo, result) {
     update_voting_result(id_photo, result);
 }
+
+function get_user_id_by_deed(photo_unique_id, callback){
+    select_row_from_table('DEED_BY_USER', 'id_deed', `'${photo_unique_id}'`, (row) => {
+        console.log(`photo_unique_id: ${photo_unique_id}, id_user: ${row.id_user}`);
+        callback(row.id_user);
+    });
+}
+
 
 
 function cmd_handler_start(chatId, username) {
@@ -278,12 +283,31 @@ function cmd_handler_add_photo(chatId) {
     bot.sendMessage(chatId, answer, {}).then();
 }
 
-async function handler_photo_received(chatId, username, photo_id, caption) {
+async function handler_photo_received(chatId, username, photo, caption) {
     const answer = `Пользователь @${username} прислал новое доброе дело! Добрые люди всех стран, объединяйтесь!\n` +
     `\nОпиcание:\n\n` +
-    `${caption}`;
+    `__${caption}__`;
 
-    await bot.sendPhoto(groupId, photo_id, {
+    // add deed to
+    const value = `'${photo.file_unique_id}'`;
+    select_row_from_table('DEEDS', 'id_deed', value, (row) => {
+        if (!row) {
+            const text = `This is a sample text`;
+            let table = 'DEEDS';
+            let fields = `id_deed,upvote,downvote,is_validated,description,type`;
+            let values = `'${photo.file_unique_id}',0,0,0,'${text}',1`;
+
+            insert_data(table, fields, values);
+
+            // Добавление доброго дела в табличку DEED_BY_USER
+            table = `DEED_BY_USER`;
+            fields = `id_user,id_deed,id_msg`;
+            values = `${chatId},'${photo.file_unique_id}',0`;
+            insert_data(table, fields, values);
+        }
+    });
+
+    await bot.sendPhoto(groupId, photo.file_id, {
         caption: answer,
         disable_notification: true,
         reply_markup: {
@@ -317,7 +341,7 @@ function create_tables () {
         if (err) return console.error(err.message);
     });
 
-    qry = `CREATE TABLE IF NOT EXISTS DEED_BY_USER (id_user INTEGER, id_deed TEXT)`;
+    qry = `CREATE TABLE IF NOT EXISTS DEED_BY_USER (id_user INTEGER, id_deed TEXT, id_msg INTEGER)`;
     db.run(qry, [], (err) => {
         if (err) return console.error(err.message);
     });
@@ -370,6 +394,16 @@ function update_voting_result(id_deed, result) {
     let qry;
     qry = `UPDATE DEEDS SET is_validated=${result} WHERE id_deed='${id_deed}';`;
     console.log(qry);
+    db.run(qry, [], (err) => {
+        if (err) return console.error(err.message);
+    });
+}
+
+function update_karma(id_user, karma) {
+    let qry;
+    qry = `UPDATE USERS SET karma = karma+${karma} WHERE id_user='${id_user}';`;
+    console.log(qry);
+    // Example: 'UPDATE users SET name = ? WHERE id = ?'
     db.run(qry, [], (err) => {
         if (err) return console.error(err.message);
     });
