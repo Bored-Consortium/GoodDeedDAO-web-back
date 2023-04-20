@@ -65,7 +65,8 @@ bot.on('message', async (msg) => {
     } else if (text === '/addphoto' || text === 'Фото') {
         cmd_handler_add_photo(chatId);
     } else if (photo_id) {
-        await handler_photo_received(chatId, username, photo_id);
+        const caption = msg.caption;
+        await handler_photo_received(chatId, username, photo_id, caption);
     }
 });
 
@@ -277,8 +278,10 @@ function cmd_handler_add_photo(chatId) {
     bot.sendMessage(chatId, answer, {}).then();
 }
 
-async function handler_photo_received(chatId, username, photo_id) {
-    const answer = `Пользователь @${username} прислал новое доброе дело! Валидаторы всех стран, объядиняйтесь!`;
+async function handler_photo_received(chatId, username, photo_id, caption) {
+    const answer = `Пользователь @${username} прислал новое доброе дело! Добрые люди всех стран, объединяйтесь!\n` +
+    `\nОпиcание:\n\n` +
+    `${caption}`;
 
     await bot.sendPhoto(groupId, photo_id, {
         caption: answer,
