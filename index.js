@@ -66,6 +66,8 @@ bot.on('message', async (msg) => {
     } else if (photo) {
         const caption = msg.caption;
         await handler_photo_received(chatId, username, photo, caption);
+    } else if (text === '/addvideo' || text === 'Видео') {
+        handler_video_received(chatId);
     }
 });
 
@@ -332,7 +334,10 @@ async function handler_photo_received(chatId, username, photo, caption) {
     }).then();
 }
 
-
+async function handler_video_received(chat_id) {
+    const answer = `Пока что я не умею обрабатывать видео, но обязательно скоро научусь!`;
+    bot.sendMessage(chat_id, answer, {}).then();
+}
 
 
 
