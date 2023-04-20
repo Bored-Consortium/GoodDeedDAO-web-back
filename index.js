@@ -5,7 +5,7 @@ const dotenv = require('dotenv').config();
 const sqlite3 = require('sqlite3').verbose();
 
 
-const db = new sqlite3.Database('data_folder/gooddeeds.db',(err) => {
+const db = new sqlite3.Database('./data_folder/gooddeeds.db',(err) => {
     if (err) {
         console.log('Could not connect to database', err)
     } else {
