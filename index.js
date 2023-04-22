@@ -17,12 +17,12 @@ create_tables();
 
 const start_karma = 10;
 // production
-// const groupId = -1001630744934;
-// const token = '6274532073:AAGBd8RzOJgQmmCTHXBkYHsugmYZXNK2XuA';
+const groupId = -1001630744934;
+const token = '6274532073:AAGBd8RzOJgQmmCTHXBkYHsugmYZXNK2XuA';
 
 // test
-const groupId = -1001952022933;
-const token = '6060326758:AAHvt8NhdghqneqS9DA5P4TRHyGlQflOaHU';
+// const groupId = -1001952022933;
+// const token = '6060326758:AAHvt8NhdghqneqS9DA5P4TRHyGlQflOaHU';
 
 const webAppUrl = 'https://iridescent-brigadeiros-13cf7d.netlify.app';
 
