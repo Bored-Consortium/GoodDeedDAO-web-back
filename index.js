@@ -108,7 +108,7 @@ bot.on('callback_query', function onCallbackQuery(callbackQuery) {
                 opts.caption = opts.caption + `${new_line}\n@${sender.username} проголосовал "за"`;
                 bot.editMessageCaption(opts.caption, {
                     chat_id: groupId,
-                    //parse_mode: `Markdown`,
+                    parse_mode: `Markdown`,
                     message_id: opts.message_id,
                     reply_markup: {
                         resize_keyboard: true,
@@ -141,9 +141,10 @@ bot.on('callback_query', function onCallbackQuery(callbackQuery) {
             } else if (action === `no`) {
                 update_votes(photo_unique_id, `downvote`);
                 opts.caption = opts.caption + `${new_line}\n@${sender.username} проголосовал "против"`;
+                console.log(`caption: `, opts.caption);
                 bot.editMessageCaption(opts.caption, {
                     chat_id: groupId,
-                    //parse_mode: `Markdown`,
+                    parse_mode: `Markdown`,
                     message_id: opts.message_id,
                     reply_markup: {
                         resize_keyboard: true,
@@ -157,6 +158,7 @@ bot.on('callback_query', function onCallbackQuery(callbackQuery) {
                 }).then();
 
                 if (downvotes + 1 === 5) {
+                    console.log(`downvotes: `, downvotes);
                     const karma = 5;
                     set_voting_finished(photo_id, -1, username, karma, opts);
                     update_karma(id_user, karma);
@@ -364,7 +366,7 @@ function cmd_handler_add_photo(chatId) {
 async function handler_photo_received(chatId, username, photo, caption) {
     const answer = `Пользователь @${username} прислал новое доброе дело! Добрые люди всех стран, объединяйтесь!\n` +
     `\nОпиcание:\n\n` +
-    `_${caption}_\n`;
+    `${caption}\n`;
 
     // add deed to
     const value = `'${photo.file_unique_id}'`;
@@ -393,7 +395,7 @@ async function handler_photo_received(chatId, username, photo, caption) {
 
     await bot.sendPhoto(groupId, photo.file_id, {
         caption: answer,
-        parse_mode: `Markdown`,
+        //parse_mode: `Markdown`,
         disable_notification: true,
         reply_markup: {
             resize_keyboard: true,
