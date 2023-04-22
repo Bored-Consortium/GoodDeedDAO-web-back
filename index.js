@@ -108,7 +108,7 @@ bot.on('callback_query', function onCallbackQuery(callbackQuery) {
                 opts.caption = opts.caption + `${new_line}\n@${sender.username} проголосовал "за"`;
                 bot.editMessageCaption(opts.caption, {
                     chat_id: groupId,
-                    parse_mode: `Markdown`,
+                    //parse_mode: `Markdown`,
                     message_id: opts.message_id,
                     reply_markup: {
                         resize_keyboard: true,
@@ -125,6 +125,7 @@ bot.on('callback_query', function onCallbackQuery(callbackQuery) {
                     const karma = 50;
                     set_voting_finished(photo_unique_id, 1, username, karma, opts);
                     update_karma(id_user, karma);
+                    update_add_deed(id_user);
                     const answer = 'Поздравляю, ты сделал Доброе Дело! Я начислил тебе 50 _Karma_';
                     bot.sendMessage(id_user, answer, {
                         parse_mode: `Markdown`,
@@ -136,15 +137,13 @@ bot.on('callback_query', function onCallbackQuery(callbackQuery) {
                     }).then();
                 }
 
-                console.log('You hit button yes');
-
             } else if (action === `no`) {
                 update_votes(photo_unique_id, `downvote`);
                 opts.caption = opts.caption + `${new_line}\n@${sender.username} проголосовал "против"`;
                 console.log(`caption: `, opts.caption);
                 bot.editMessageCaption(opts.caption, {
                     chat_id: groupId,
-                    parse_mode: `Markdown`,
+                    //parse_mode: `Markdown`,
                     message_id: opts.message_id,
                     reply_markup: {
                         resize_keyboard: true,
@@ -171,7 +170,7 @@ bot.on('callback_query', function onCallbackQuery(callbackQuery) {
                         text: `Голос против этого дела учтён!`,
                     }).then();
                 }
-                console.log('You hit button no');
+
             } else {
                 console.log('You hit');
             }
@@ -205,7 +204,7 @@ function is_voting_finished(photo_id, callback) {
     select_row_from_table('DEEDS', 'id_deed', `'${photo_id}'`, (row) => {
         console.log(row);
         if (row) {
-            if (row?.is_validated) {
+            if (row?.is_validated === 1 || row?.is_validated === -1) {
                 callback(true, row?.upvote, row?.downvote);
             } else {
                 callback(false, row?.upvote, row?.downvote);
@@ -221,16 +220,16 @@ function set_voting_finished(id_photo, result, username, karma, opts) {
     let res = ``;
     if (result === 1) {
         res = `Доброе дело принято.`;
-    } else {
+    } else if (result === -1) {
         res = `Доброе дело не принято.`;
     }
 
     const cap = opts.caption +
-                    `\n\n*Голосование закончено!*` +
-                    `\n*Результат*: ${res}` +
-                    `\n@${username} получил ${karma} _Karma_`;
+                    `\n\n<b>Голосование закончено!</b>` +
+                    `\n<b>Результат</b>: ${res}` +
+                    `\n@${username} получил ${karma} <i>Karma</i>`;
     bot.editMessageCaption(cap, {
-        parse_mode: `Markdown`,
+        parse_mode: `HTML`,
         chat_id: groupId,
         message_id: opts.message_id,
         reply_markup: {
@@ -365,8 +364,8 @@ function cmd_handler_add_photo(chatId) {
 
 async function handler_photo_received(chatId, username, photo, caption) {
     const answer = `Пользователь @${username} прислал новое доброе дело! Добрые люди всех стран, объединяйтесь!\n` +
-    `\nОпиcание:\n\n` +
-    `${caption}\n`;
+    `\nОпиcание:\n` +
+    `<i>${caption}</i>.\n`;
 
     // add deed to
     const value = `'${photo.file_unique_id}'`;
@@ -395,7 +394,7 @@ async function handler_photo_received(chatId, username, photo, caption) {
 
     await bot.sendPhoto(groupId, photo.file_id, {
         caption: answer,
-        //parse_mode: `Markdown`,
+        parse_mode: `HTML`,
         disable_notification: true,
         reply_markup: {
             resize_keyboard: true,
@@ -492,6 +491,14 @@ function update_karma(id_user, karma) {
     qry = `UPDATE USERS SET karma = karma+${karma} WHERE id_user='${id_user}';`;
     console.log(qry);
     // Example: 'UPDATE users SET name = ? WHERE id = ?'
+    db.run(qry, [], (err) => {
+        if (err) return console.error(err.message);
+    });
+}
+
+function update_add_deed(id_user) {
+    let qry;
+    qry = `UPDATE USERS SET deeds = deeds+1 WHERE id_user='${id_user}';`;
     db.run(qry, [], (err) => {
         if (err) return console.error(err.message);
     });
