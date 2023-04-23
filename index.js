@@ -17,12 +17,12 @@ create_tables();
 
 const start_karma = 10;
 // production
-const groupId = -1001630744934;
-const token = '6274532073:AAGBd8RzOJgQmmCTHXBkYHsugmYZXNK2XuA';
+// const groupId = -1001630744934;
+// const token = '6274532073:AAGBd8RzOJgQmmCTHXBkYHsugmYZXNK2XuA';
 
 // test
-// const groupId = -1001952022933;
-// const token = '6060326758:AAHvt8NhdghqneqS9DA5P4TRHyGlQflOaHU';
+const groupId = -1001952022933;
+const token = '6060326758:AAHvt8NhdghqneqS9DA5P4TRHyGlQflOaHU';
 
 const webAppUrl = 'https://iridescent-brigadeiros-13cf7d.netlify.app';
 
@@ -78,8 +78,13 @@ bot.on('message', async (msg) => {
 
 
 bot.on('callback_query', function onCallbackQuery(callbackQuery) {
-    const sender = callbackQuery.from;
-    const action = callbackQuery.data;
+    const sender = {
+        id: callbackQuery.from.id,
+        username: callbackQuery.from.username,
+        action: callbackQuery.data,
+        callback_id: callbackQuery.id,
+        role: 'validator',
+    };
     const msg = callbackQuery.message;
     const opts = {
         caption: msg.caption,
@@ -94,86 +99,37 @@ bot.on('callback_query', function onCallbackQuery(callbackQuery) {
     }
 
     is_voting_finished(photo_unique_id, (is_voting_finished, upvotes, downvotes) => {
-        if (is_voting_finished) {
+        const deed = {
+            id: photo_unique_id,
+            upvotes: upvotes,
+            downvotes: downvotes,
+            finished: is_voting_finished,
+        };
+        console.log(`deed: `, deed);
+        if (deed.finished) {
             bot.answerCallbackQuery(callbackQuery.id, {
                 text: `Голосование по этому делу уже завершилось`,
             }).then();
             return;
         }
 
-        get_user_by_deed(photo_unique_id, (id_user, username) => {
-            const new_line = downvotes === 0 && upvotes === 0 ? `\n` : ``;
-            if (action === 'yes') {
-                update_votes(photo_unique_id, `upvote`);
-                opts.caption = opts.caption + `${new_line}\n@${sender.username} проголосовал "за"`;
-                bot.editMessageCaption(opts.caption, {
-                    chat_id: groupId,
-                    //parse_mode: `Markdown`,
-                    message_id: opts.message_id,
-                    reply_markup: {
-                        resize_keyboard: true,
-                        inline_keyboard: [
-                            [
-                                {text: 'Дело доброе', callback_data: `yes`},
-                                {text: 'Не очень доброе', callback_data: `no`}
-                            ]
-                        ]
-                    }
-                }).then();
+        get_user_by_deed(deed.id, (id_user_creator, username_creator) => {
+            const creator = {
+                id: id_user_creator,
+                username: username_creator,
+            };
+            console.log(`creator: `, creator);
 
-                if (upvotes + 1 === 5) {
-                    const karma = 50;
-                    set_voting_finished(photo_unique_id, 1, username, karma, opts);
-                    update_karma(id_user, karma);
-                    update_add_deed(id_user);
-                    const answer = 'Поздравляю, ты сделал Доброе Дело! Я начислил тебе 50 _Karma_';
-                    bot.sendMessage(id_user, answer, {
-                        parse_mode: `Markdown`,
-                    }).then();
-
+            // is_user_creator();
+            set_new_vote(sender, deed.id, (did_user_vote) => {
+                if (!did_user_vote) {
+                    handle_new_vote(deed, opts, creator, sender);
                 } else {
-                    bot.answerCallbackQuery(callbackQuery.id, {
-                        text: `Голос "за" дело учтён!`,
+                    bot.answerCallbackQuery(sender.callback_id, {
+                        text: `Вы уже голосовали`,
                     }).then();
                 }
-
-            } else if (action === `no`) {
-                update_votes(photo_unique_id, `downvote`);
-                opts.caption = opts.caption + `${new_line}\n@${sender.username} проголосовал "против"`;
-                console.log(`caption: `, opts.caption);
-                bot.editMessageCaption(opts.caption, {
-                    chat_id: groupId,
-                    //parse_mode: `Markdown`,
-                    message_id: opts.message_id,
-                    reply_markup: {
-                        resize_keyboard: true,
-                        inline_keyboard: [
-                            [
-                                {text: 'Дело доброе', callback_data: `yes`},
-                                {text: 'Не очень доброе', callback_data: `no`}
-                            ]
-                        ]
-                    }
-                }).then();
-
-                if (downvotes + 1 === 5) {
-                    console.log(`downvotes: `, downvotes);
-                    const karma = 5;
-                    set_voting_finished(photo_id, -1, username, karma, opts);
-                    update_karma(id_user, karma);
-                    const answer = 'Сообщество не посчитало это дело достаточно добрым. Я начислил тебе утешительные 5 _Karma_!';
-                    bot.sendMessage(id_user, answer, {
-                        parse_mode: `Markdown`,
-                    }).then();
-                } else {
-                    bot.answerCallbackQuery(callbackQuery.id, {
-                        text: `Голос против этого дела учтён!`,
-                    }).then();
-                }
-
-            } else {
-                console.log('You hit');
-            }
+            });
         });
     });
 });
@@ -243,6 +199,31 @@ function set_voting_finished(id_photo, result, username, karma, opts) {
     }).then();
 }
 
+function set_new_vote(sender, id_deed, callback) {
+    let vote;
+    if (sender.action === `yes`) {
+        vote = 1;
+    } else if (sender.action === `no`) {
+        vote = -1;
+    }
+
+    let status;
+    if      (sender.role === `creator`)   {  status = 1; }
+    else if (sender.role === `validator`) {  status = 2; }
+
+    const fields = `id_user,id_deed,vote,status`;
+    const values = `${sender.id},'${id_deed}',${vote},${status}`;
+    insert_data(`VOTES`, fields, values, (error) => {
+        const error_msg = `SQLITE_CONSTRAINT: UNIQUE constraint failed: VOTES.id_user, VOTES.id_deed`;
+        if (error) {
+            callback(error?.message === error_msg);
+        } else {
+            callback(false);
+        }
+
+    });
+}
+
 function get_user_by_deed(photo_unique_id, callback){
     select_row_from_table('DEED_BY_USER', 'id_deed', `'${photo_unique_id}'`, (row) => {
         console.log(`photo_unique_id: ${photo_unique_id}, id_user: ${row.id_user}`);
@@ -253,6 +234,80 @@ function get_user_by_deed(photo_unique_id, callback){
     });
 }
 
+function handle_new_vote(deed, opts, creator, sender) {
+    const new_line = deed.downvotes === 0 && deed.upvotes === 0 ? `\n` : ``;
+    if (sender.action === 'yes') {
+        update_votes(deed.id, `upvote`);
+        opts.caption = opts.caption + `${new_line}\n@${sender.username} проголосовал "за"`;
+        bot.editMessageCaption(opts.caption, {
+            chat_id: groupId,
+            //parse_mode: `Markdown`,
+            message_id: opts.message_id,
+            reply_markup: {
+                resize_keyboard: true,
+                inline_keyboard: [
+                    [
+                        {text: 'Дело доброе', callback_data: `yes`},
+                        {text: 'Не очень доброе', callback_data: `no`}
+                    ]
+                ]
+            }
+        }).then();
+
+        if (deed.upvotes + 1 === 5) {
+            const karma = 50;
+            set_voting_finished(deed.id, 1, creator.username, karma, opts);
+            update_karma(creator.id, karma);
+            update_add_deed(creator.id);
+            const answer = 'Поздравляю, ты сделал Доброе Дело! Я начислил тебе 50 _Karma_';
+            bot.sendMessage(creator.id, answer, {
+                parse_mode: `Markdown`,
+            }).then();
+
+        } else {
+            bot.answerCallbackQuery(sender.callback_id, {
+                text: `Голос "за" дело учтён!`,
+            }).then();
+        }
+
+    } else if (sender.action === `no`) {
+        update_votes(deed.id, `downvote`);
+        opts.caption = opts.caption + `${new_line}\n@${sender.username} проголосовал "против"`;
+        console.log(`caption: `, opts.caption);
+        bot.editMessageCaption(opts.caption, {
+            chat_id: groupId,
+            //parse_mode: `Markdown`,
+            message_id: opts.message_id,
+            reply_markup: {
+                resize_keyboard: true,
+                inline_keyboard: [
+                    [
+                        {text: 'Дело доброе', callback_data: `yes`},
+                        {text: 'Не очень доброе', callback_data: `no`}
+                    ]
+                ]
+            }
+        }).then();
+
+        if (deed.downvotes + 1 === 5) {
+            console.log(`downvotes: `, deed.downvotes);
+            const karma = 5;
+            set_voting_finished(deed.id, -1, creator.username, karma, opts);
+            update_karma(creator.id, karma);
+            const answer = 'Сообщество не посчитало это дело достаточно добрым. Я начислил тебе утешительные 5 _Karma_!';
+            bot.sendMessage(creator.id, answer, {
+                parse_mode: `Markdown`,
+            }).then();
+        } else {
+            bot.answerCallbackQuery(sender.callback_id, {
+                text: `Голос против этого дела учтён!`,
+            }).then();
+        }
+
+    } else {
+        console.log('You hit');
+    }
+}
 
 
 function cmd_handler_start(chatId, username) {
@@ -365,7 +420,7 @@ function cmd_handler_add_photo(chatId) {
 async function handler_photo_received(chatId, username, photo, caption) {
     const answer = `Пользователь @${username} прислал новое доброе дело! Добрые люди всех стран, объединяйтесь!\n` +
     `\nОпиcание:\n` +
-    `<i>${caption}</i>.\n`;
+    `<i>${caption}</i>\n`;
 
     // add deed to
     const value = `'${photo.file_unique_id}'`;
@@ -433,7 +488,12 @@ function create_tables () {
         if (err) return console.error(err.message);
     });
 
-    qry = `CREATE TABLE IF NOT EXISTS VOTES (id_user INTEGER, id_deed TEXT, vote INTEGER, status INTEGER)`;
+    qry = `CREATE TABLE IF NOT EXISTS VOTES (id_user INTEGER, ` +
+                                            `id_deed TEXT, ` +
+                                            `vote INTEGER, ` +
+                                            `status INTEGER, ` +
+                                            `PRIMARY KEY (id_user, id_deed)` +
+                                            `);`;
     db.run(qry, [], (err) => {
         if (err) return console.error(err.message);
     });
@@ -458,12 +518,12 @@ function select_row_from_table(table, condition, value, callback) {
     });
 }
 
-function insert_data(table, fields, values) {
+function insert_data(table, fields, values, callback) {
     let qry;
-    qry = `INSERT INTO ${table} (${fields}) VALUES(${values})`;
+    qry = `INSERT INTO ${table}(${fields}) VALUES(${values})`;
     console.log(qry);
     db.run(qry, [], (err) => {
-        if (err) return console.error(err.message);
+        callback(err);
     });
 }
 
