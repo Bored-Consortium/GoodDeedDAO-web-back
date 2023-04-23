@@ -120,6 +120,13 @@ bot.on('callback_query', function onCallbackQuery(callbackQuery) {
             };
             console.log(`creator: `, creator);
 
+            if (creator.id === sender.id) {
+                bot.answerCallbackQuery(sender.callback_id, {
+                    text: `Это Ваше дело, вы не можете голосовать`,
+                }).then();
+                return;
+            }
+
             // is_user_creator();
             set_new_vote(sender, deed.id, (did_user_vote) => {
                 if (!did_user_vote) {
@@ -175,7 +182,7 @@ function set_voting_finished(id_photo, result, username, karma, opts) {
     update_voting_result(id_photo, result);
     let res = ``;
     if (result === 1) {
-        res = `Доброе дело принято.`;
+        res = `Доброе дело принято и будет выпущено в виде NFT в Галерее Добра!`;
     } else if (result === -1) {
         res = `Доброе дело не принято.`;
     }
@@ -183,7 +190,7 @@ function set_voting_finished(id_photo, result, username, karma, opts) {
     const cap = opts.caption +
                     `\n\n<b>Голосование закончено!</b>` +
                     `\n<b>Результат</b>: ${res}` +
-                    `\n@${username} получил ${karma} <i>Karma</i>`;
+                    `\n@${username} получил ${karma} Karma!`;
     bot.editMessageCaption(cap, {
         parse_mode: `HTML`,
         chat_id: groupId,
@@ -259,7 +266,7 @@ function handle_new_vote(deed, opts, creator, sender) {
             set_voting_finished(deed.id, 1, creator.username, karma, opts);
             update_karma(creator.id, karma);
             update_add_deed(creator.id);
-            const answer = 'Поздравляю, ты сделал Доброе Дело! Я начислил тебе 50 _Karma_';
+            const answer = 'Поздравляю, ты сделал Доброе Дело! Я начислил тебе 50 Karma';
             bot.sendMessage(creator.id, answer, {
                 parse_mode: `Markdown`,
             }).then();
@@ -320,7 +327,7 @@ function cmd_handler_start(chatId, username) {
             const fields = `id_user,'user_name','karma','deeds','validations'`;
             const values = `${chatId},'${username}',${start_karma},0,0`;
 
-            insert_data(table, fields, values);
+            insert_data(table, fields, values, () => {});
             answer = '🤖 Привет! Я, бот Хранитель Добра\n\n' +
                 '🌍 Добро пожаловать в Зов Добра!\n' +
                 '🙏 Здесь мы меняем мир к лучшему\n\n' +
@@ -418,7 +425,7 @@ function cmd_handler_add_photo(chatId) {
 }
 
 async function handler_photo_received(chatId, username, photo, caption) {
-    const answer = `Пользователь @${username} прислал новое доброе дело! Добрые люди всех стран, объединяйтесь!\n` +
+    const answer = `Пользователь @${username} прислал новое доброе дело! #БытьДобру\n` +
     `\nОпиcание:\n` +
     `<i>${caption}</i>\n`;
 
@@ -431,13 +438,17 @@ async function handler_photo_received(chatId, username, photo, caption) {
             let fields = `id_deed,upvote,downvote,is_validated,description,type`;
             let values = `'${photo.file_unique_id}',0,0,0,'${text}',1`;
 
-            insert_data(table, fields, values);
+            insert_data(table, fields, values, (err) => {
+                console.log(err);
+            });
 
             // Добавление доброго дела в табличку DEED_BY_USER
             table = `DEED_BY_USER`;
             fields = `id_user,id_deed,id_msg`;
             values = `${chatId},'${photo.file_unique_id}',0`;
-            insert_data(table, fields, values);
+            insert_data(table, fields, values, (err) => {
+                console.log(err);
+            });
         }
     });
 
