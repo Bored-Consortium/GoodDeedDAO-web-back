@@ -216,26 +216,20 @@ function add_karma_to_voters(id_photo, result, voter_karma) {
 
     // Select all voters + their vote
     select_data_from_table(`VOTES`,`id_deed`,`'${id_photo}'`,(rows) => {
-        let users = [];
+        const message = `Доброе дело, за которое вы голосовали, ${res_msg}. ` +
+                        `Вам начислено ${voter_karma} Karma.`;
         rows.forEach((row) => {
             // Filter voters by their vote
             if (row.vote === result) {
-                users.push(row.id_user);
+                update_karma(row.id_user, voter_karma);
+                bot.sendMessage(row.id_user, message, {
+                    parse_mode: `Markdown`,
+                }).then();
             }
+            update_add_validations(row.id_user);
         });
 
-        // Add Karma
-        users.forEach((item_id_user, value, array) => {
-            update_karma(item_id_user, voter_karma);
-            update_add_validations(item_id_user);
-            const message = `Доброе дело, за которое вы голосовали, ${res_msg}. ` +
-            `Вам начислено ${voter_karma} Karma.`;
-            bot.sendMessage(item_id_user, message, {
-                parse_mode: `Markdown`,
-            }).then();
-        });
         // Send message to chat
-        console.log(users);
     });
 
 
