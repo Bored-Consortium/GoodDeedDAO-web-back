@@ -105,7 +105,6 @@ bot.on('callback_query', function onCallbackQuery(callbackQuery) {
             downvotes: downvotes,
             finished: is_voting_finished,
         };
-        console.log(`deed: `, deed);
         if (deed.finished) {
             bot.answerCallbackQuery(callbackQuery.id, {
                 text: `Голосование по этому делу уже завершилось`,
@@ -118,7 +117,6 @@ bot.on('callback_query', function onCallbackQuery(callbackQuery) {
                 id: id_user_creator,
                 username: username_creator,
             };
-            console.log(`creator: `, creator);
 
             if (creator.id === sender.id) {
                 bot.answerCallbackQuery(sender.callback_id, {
@@ -143,7 +141,6 @@ bot.on('callback_query', function onCallbackQuery(callbackQuery) {
 
 
 app.post('/web-data', async (req, res) => {
-    console.log('THIS IS CONSOLE');
     const {queryId, products = [], totalPrice} = JSON.parse(req.body);
     try {
         await bot.answerWebAppQuery(queryId, {
@@ -165,7 +162,6 @@ app.listen(PORT, () => console.log('server started on PORT ' + PORT));
 
 function is_voting_finished(photo_id, callback) {
     select_row_from_table('DEEDS', 'id_deed', `'${photo_id}'`, (row) => {
-        console.log(row);
         if (row) {
             if (row?.is_validated === 1 || row?.is_validated === -1) {
                 callback(true, row?.upvote, row?.downvote);
@@ -204,6 +200,46 @@ function set_voting_finished(id_photo, result, username, karma, opts) {
             ]
         }
     }).then();
+
+    /* Add Karma to voters */
+    const voter_karma = Math.ceil(karma * 0.03);
+    add_karma_to_voters(id_photo, result, voter_karma);
+}
+
+function add_karma_to_voters(id_photo, result, voter_karma) {
+    let res_msg;
+    if (result === 1) {
+        res_msg = `принято`;
+    } else {
+        res_msg = `не принято`;
+    }
+
+    // Select all voters + their vote
+    select_data_from_table(`VOTES`,`id_deed`,`'${id_photo}'`,(rows) => {
+        let users = [];
+        rows.forEach((row) => {
+            // Filter voters by their vote
+            if (row.vote === result) {
+                users.push(row.id_user);
+            }
+        });
+
+        // Add Karma
+        users.forEach((item_id_user, value, array) => {
+            update_karma(item_id_user, voter_karma);
+            update_add_validations(item_id_user);
+            const message = `Доброе дело, за которое вы голосовали, ${res_msg}. ` +
+            `Вам начислено ${voter_karma} Karma.`;
+            bot.sendMessage(item_id_user, message, {
+                parse_mode: `Markdown`,
+            }).then();
+        });
+        // Send message to chat
+        console.log(users);
+    });
+
+
+
 }
 
 function set_new_vote(sender, id_deed, callback) {
@@ -233,8 +269,6 @@ function set_new_vote(sender, id_deed, callback) {
 
 function get_user_by_deed(photo_unique_id, callback){
     select_row_from_table('DEED_BY_USER', 'id_deed', `'${photo_unique_id}'`, (row) => {
-        console.log(`photo_unique_id: ${photo_unique_id}, id_user: ${row.id_user}`);
-
         select_row_from_table('USERS', 'id_user', `${row.id_user}`, (user_row) => {
             callback(row.id_user, user_row.user_name);
         });
@@ -280,7 +314,6 @@ function handle_new_vote(deed, opts, creator, sender) {
     } else if (sender.action === `no`) {
         update_votes(deed.id, `downvote`);
         opts.caption = opts.caption + `${new_line}\n@${sender.username} проголосовал "против"`;
-        console.log(`caption: `, opts.caption);
         bot.editMessageCaption(opts.caption, {
             chat_id: groupId,
             //parse_mode: `Markdown`,
@@ -297,7 +330,6 @@ function handle_new_vote(deed, opts, creator, sender) {
         }).then();
 
         if (deed.downvotes + 1 === 5) {
-            console.log(`downvotes: `, deed.downvotes);
             const karma = 5;
             set_voting_finished(deed.id, -1, creator.username, karma, opts);
             update_karma(creator.id, karma);
@@ -452,12 +484,6 @@ async function handler_photo_received(chatId, username, photo, caption) {
         }
     });
 
-    console.log(
-        `method: sendPhoto`,
-        `\ngroupId: `,  groupId,
-        `\nphoto.file_id`, photo.file_id
-    );
-
     await bot.sendPhoto(groupId, photo.file_id, {
         caption: answer,
         parse_mode: `HTML`,
@@ -510,14 +536,13 @@ function create_tables () {
     });
 }
 
-function select_data_from_table(table) {
-    let qry;
-    qry = 'SELECT * from ?';
-    db.all(qry, [table], (err, rows) => {
+function select_data_from_table(table, condition, value, callback) {
+    const qry = `SELECT * FROM ${table} WHERE ${condition}=${value};`;
+    console.log(qry);
+    db.all(qry, [], (err, results) => {
         if (err) return console.error(err.message);
-        rows.forEach((row) => {
-            console.log(row);
-        });
+        callback(results);
+        // console.log(results);
     });
 }
 
@@ -532,7 +557,6 @@ function select_row_from_table(table, condition, value, callback) {
 function insert_data(table, fields, values, callback) {
     let qry;
     qry = `INSERT INTO ${table}(${fields}) VALUES(${values})`;
-    console.log(qry);
     db.run(qry, [], (err) => {
         callback(err);
     });
@@ -541,8 +565,6 @@ function insert_data(table, fields, values, callback) {
 function update_votes(id_deed, column) {
     let qry;
     qry = `UPDATE DEEDS SET ${column} = ${column}+1 WHERE id_deed='${id_deed}';`;
-    console.log(qry);
-    // Example: 'UPDATE users SET name = ? WHERE id = ?'
     db.run(qry, [], (err) => {
         if (err) return console.error(err.message);
     });
@@ -551,7 +573,6 @@ function update_votes(id_deed, column) {
 function update_voting_result(id_deed, result) {
     let qry;
     qry = `UPDATE DEEDS SET is_validated=${result} WHERE id_deed='${id_deed}';`;
-    console.log(qry);
     db.run(qry, [], (err) => {
         if (err) return console.error(err.message);
     });
@@ -560,8 +581,6 @@ function update_voting_result(id_deed, result) {
 function update_karma(id_user, karma) {
     let qry;
     qry = `UPDATE USERS SET karma = karma+${karma} WHERE id_user='${id_user}';`;
-    console.log(qry);
-    // Example: 'UPDATE users SET name = ? WHERE id = ?'
     db.run(qry, [], (err) => {
         if (err) return console.error(err.message);
     });
@@ -570,6 +589,14 @@ function update_karma(id_user, karma) {
 function update_add_deed(id_user) {
     let qry;
     qry = `UPDATE USERS SET deeds = deeds+1 WHERE id_user='${id_user}';`;
+    db.run(qry, [], (err) => {
+        if (err) return console.error(err.message);
+    });
+}
+
+function update_add_validations(id_user) {
+    let qry;
+    qry = `UPDATE USERS SET validations = validations+1 WHERE id_user='${id_user}';`;
     db.run(qry, [], (err) => {
         if (err) return console.error(err.message);
     });
