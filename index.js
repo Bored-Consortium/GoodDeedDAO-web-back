@@ -16,6 +16,8 @@ const db = new sqlite3.Database('./data_folder/gooddeeds.db',(err) => {
 create_tables();
 
 const start_karma = 10;
+const dobro_tag = `#бытьдобру`;
+
 // production
 const groupId = -1001630744934;
 const token = '6274532073:AAGBd8RzOJgQmmCTHXBkYHsugmYZXNK2XuA';
@@ -40,14 +42,16 @@ bot.on('message', async (msg) => {
     const text = msg.text;
     const username = msg.from.username;
 
-    if (chat_id === groupId) { return; }
-
-    if (!chat_id) {
-        console.log('chat_id in msg is null');
+    if (chat_id === groupId) {
+        if (text.toLowerCase().includes(dobro_tag)) {
+            const karma = 5;
+            await handler_tag_received(msg, karma);
+        }
         return;
     }
 
-    if (chat_id === groupId) {
+    if (!chat_id) {
+        console.log('chat_id in msg is null');
         return;
     }
 
@@ -73,6 +77,8 @@ bot.on('message', async (msg) => {
         await handler_photo_received(chat_id, username, photo, caption);
     } else if (text === '/addvideo' || text === 'Видео') {
         await handler_video_received(chat_id);
+    } else {
+        await handler_unknown_message(chat_id);
     }
 });
 
@@ -499,6 +505,18 @@ async function handler_video_received(chat_id) {
     bot.sendMessage(chat_id, answer, {}).then();
 }
 
+async function handler_tag_received(msg, karma) {
+    update_karma(msg.from.id, karma);
+    const answer = `@${msg.from.username}, спасибо за твое пожелание! Держи +${karma} Karma`;
+    bot.sendMessage(groupId, answer, {
+        reply_to_message_id: msg.message_id,
+    }).then();
+}
+
+async function handler_unknown_message(chat_id) {
+    const answer = `Я не понимаю тебя, человек 😢`;
+    bot.sendMessage(chat_id, answer, {}).then();
+}
 
 
 // Database
