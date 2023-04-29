@@ -42,22 +42,24 @@ bot.on('message', async (msg) => {
     const text = msg.text;
     const username = msg.from.username;
 
-    if (chat_id === groupId) {
-        if (text.toLowerCase().includes(dobro_tag)) {
-            const karma = 5;
-            await handler_tag_received(msg, karma);
-        }
-        return;
-    }
-
     if (!chat_id) {
         console.log('chat_id in msg is null');
         return;
     }
 
-    let photo;
+    let photo, caption, is_tag_in_caption = false;
     if (msg.photo) {
         photo = msg.photo[msg.photo.length - 1];
+        caption = msg.caption;
+        is_tag_in_caption = caption?.toLowerCase().includes(dobro_tag);
+    }
+
+    if (chat_id === groupId) {
+        if (text?.toLowerCase().includes(dobro_tag) || is_tag_in_caption) {
+            const karma = 5;
+            await handler_tag_received(msg, karma);
+        }
+        return;
     }
 
     if (text === '/start') {
@@ -73,7 +75,6 @@ bot.on('message', async (msg) => {
     } else if (text === '/addphoto' || text === 'Фото') {
         cmd_handler_add_photo(chat_id);
     } else if (photo) {
-        const caption = msg.caption;
         await handler_photo_received(chat_id, username, photo, caption);
     } else if (text === '/addvideo' || text === 'Видео') {
         await handler_video_received(chat_id);
