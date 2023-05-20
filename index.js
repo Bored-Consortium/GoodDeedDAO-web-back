@@ -18,13 +18,8 @@ create_tables();
 const start_karma = 10;
 const dobro_tag = `#бытьдобру`;
 
-// production
-const groupId = -1001630744934;
-const token = '6274532073:AAGBd8RzOJgQmmCTHXBkYHsugmYZXNK2XuA';
-
-// test
-//const groupId = -1001952022933;
-//const token = '6060326758:AAHvt8NhdghqneqS9DA5P4TRHyGlQflOaHU';
+const groupId = process.env.GROUP_ID;
+const token = process.env.BOT_TOKEN;
 
 const webAppUrl = 'https://iridescent-brigadeiros-13cf7d.netlify.app';
 
@@ -37,9 +32,45 @@ const PORT = process.env.PROD_PORT;
 app.use(express.json());
 app.use(cors())
 
-bot.on('message', async (msg) => {
+bot.on('text', async (msg) => {
     const chat_id = msg.chat.id;
     const text = msg.text;
+    const username = msg.from.username;
+
+    if (!chat_id) {
+        console.log('chat_id in msg is null');
+        return;
+    }
+
+    if (chat_id === groupId) {
+        if (text?.toLowerCase().includes(dobro_tag)) {
+            const karma = 5;
+            await handler_tag_received(msg, karma);
+        }
+        return;
+    }
+
+    if (text === '/start') {
+        cmd_handler_start(chat_id, username);
+    } else if (text === '/help' || text === 'О боте') {
+        cmd_handler_info(chat_id);
+    } else if (text === '/userinfo' || text === 'Мой Аватар') {
+        cmd_handler_user_info(chat_id);
+    } else if (text === '/adddeed' || text === 'Добавить доброе дело') {
+        cmd_handler_add_deed(chat_id);
+    } else if (text === '/back' || text === 'Назад') {
+        cmd_handler_back(chat_id);
+    } else if (text === '/addphoto' || text === 'Фото') {
+        cmd_handler_add_photo(chat_id);
+    } else if (text === '/addvideo' || text === 'Видео') {
+        await handler_video_received(chat_id);
+    } else {
+        await handler_unknown_message(chat_id);
+    }
+});
+
+bot.on('photo', async (msg) => {
+    const chat_id = msg.chat.id;
     const username = msg.from.username;
 
     if (!chat_id) {
@@ -62,27 +93,12 @@ bot.on('message', async (msg) => {
         return;
     }
 
-    if (text === '/start') {
-        cmd_handler_start(chat_id, username);
-    } else if (text === '/help' || text === 'О боте') {
-        cmd_handler_info(chat_id);
-    } else if (text === '/userinfo' || text === 'Мой Аватар') {
-        cmd_handler_user_info(chat_id);
-    } else if (text === '/adddeed' || text === 'Добавить доброе дело') {
-        cmd_handler_add_deed(chat_id);
-    } else if (text === '/back' || text === 'Назад') {
-        cmd_handler_back(chat_id);
-    } else if (text === '/addphoto' || text === 'Фото') {
-        cmd_handler_add_photo(chat_id);
-    } else if (photo) {
-        await handler_photo_received(chat_id, username, photo, caption);
-    } else if (text === '/addvideo' || text === 'Видео') {
-        await handler_video_received(chat_id);
-    } else {
-        await handler_unknown_message(chat_id);
-    }
+    await handler_photo_received(chat_id, username, photo, caption);
 });
 
+bot.on('video', async (msg) => {
+
+});
 
 bot.on('callback_query', function onCallbackQuery(callbackQuery) {
     const sender = {
@@ -99,9 +115,8 @@ bot.on('callback_query', function onCallbackQuery(callbackQuery) {
         message_id: msg.message_id,
     };
 
-    let photo_id, photo_unique_id;
+    let photo_unique_id;
     if (msg.photo) {
-        photo_id = msg.photo[msg.photo.length - 1].file_id;
         photo_unique_id = msg.photo[msg.photo.length - 1].file_unique_id;
     }
 
