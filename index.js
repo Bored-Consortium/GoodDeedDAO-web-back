@@ -28,6 +28,10 @@ const app = express();
 app.use(express.json());
 app.use(cors())
 
+bot.on('message', async (msg) => {
+    console.log(`message received: ${msg.photo}, ${msg.video}, ${msg.document}, ${msg.animation}`)
+})
+
 bot.on('text', async (msg) => {
     const chat_id = msg.chat.id;
     const text = msg.text;
@@ -61,6 +65,8 @@ bot.on('text', async (msg) => {
         cmd_handler_add_photo(chat_id);
     } else if (text === '/addvideo' || text === 'Видео') {
         cmd_handler_add_video(chat_id);
+    } else if (text === '/addfile' || text === 'Файл') {
+        cmd_handler_add_file(chat_id);
     } else {
         await handler_unknown_message(chat_id);
     }
@@ -107,7 +113,7 @@ bot.on('video', async (msg) => {
         return;
     }
 
-    console.log(`user ${username} video photo`)
+    console.log(`user ${username} send video`)
 
     let video, caption, is_tag_in_caption = false;
     if (msg.video) {
@@ -128,6 +134,38 @@ bot.on('video', async (msg) => {
     }
 
     await handler_video_received(chat_id, username, video, caption);
+});
+
+bot.on('document', async (msg) => {
+    const chat_id = msg.chat.id;
+    const username = msg.from.username;
+
+    if (!chat_id) {
+        console.log('chat_id in msg is null');
+        return;
+    }
+
+    console.log(`user ${username} send document`)
+
+    let document, caption, is_tag_in_caption = false;
+    if (msg.document) {
+        document = msg.document;
+        caption = msg.caption;
+        is_tag_in_caption = caption?.toLowerCase().includes(dobro_tag);
+        console.log(`in message: file: ${document.file_id}, caption: "${caption}", tag: ${is_tag_in_caption}`)
+    }
+
+    if (chat_id === groupId) {
+        console.log(`message from group ${chat_id}`)
+        if (caption?.toLowerCase().includes(dobro_tag) || is_tag_in_caption) {
+            const karma = 5;
+            const answer = `@${msg.from.username}, спасибо за этот прекрасный файл! Держи +${karma} Karma`;
+            await handler_tag_received(msg, karma, answer);
+        }
+        return;
+    }
+
+    await handler_file_received(chat_id, username, document, caption);
 });
 
 bot.on('callback_query', function onCallbackQuery(callbackQuery) {
@@ -151,6 +189,9 @@ bot.on('callback_query', function onCallbackQuery(callbackQuery) {
     }
     if (msg.video) {
         file_unique_id = msg.video.file_unique_id;
+    }
+    if (msg.document) {
+        file_unique_id = msg.document.file_unique_id;
     }
 
     is_voting_finished(file_unique_id, (is_voting_finished, upvotes, downvotes) => {
@@ -475,7 +516,8 @@ function cmd_handler_add_deed(chatId) {
                 [
                     {text: 'Назад'},
                     {text: 'Фото'},
-                    {text: 'Видео'}
+                    {text: 'Видео'},
+                    {text: 'Файл'}
                 ]
             ]
         }
@@ -499,12 +541,17 @@ function cmd_handler_back(chatId) {
 }
 
 function cmd_handler_add_photo(chatId) {
-    const answer = `Пришли мне фотографию`;
+    const answer = `Пришли мне фотографию твоего доброго дела`;
     bot.sendMessage(chatId, answer, {}).then();
 }
 
 function cmd_handler_add_video(chatId) {
-    const answer = `Пришли мне видео`;
+    const answer = `Пришли мне видеозапись твоего доброго дела`;
+    bot.sendMessage(chatId, answer, {}).then();
+}
+
+function cmd_handler_add_file(chatId) {
+    const answer = `Пришли мне файл с описанием твоего доброго дела`;
     bot.sendMessage(chatId, answer, {}).then();
 }
 
@@ -601,6 +648,52 @@ async function handler_video_received(chatId, username, video, caption) {
     }, () => {}).then();
 }
 
+async function handler_file_received(chatId, username, document, caption) {
+    console.log(`handler_file_received called by ${username} from chat ${chatId} with caption "${caption}"`)
+    const answer = `Пользователь @${username} прислал новое доброе дело! #БытьДобру\n` +
+        `\nОпиcание:\n` +
+        `<i>${caption}</i>\n`;
+
+    // add deed to
+    const value = `'${document.file_unique_id}'`;
+    console.log(`received file with file_unique_id ${document.file_unique_id}`)
+    await select_row_from_table('DEEDS', 'id_deed', value, (row) => {
+        if (!row) {
+            const text = `This is a sample text`;
+            let table = 'DEEDS';
+            let fields = `id_deed,upvote,downvote,is_validated,description,type`;
+            let values = `${value},0,0,0,'${text}',3`;
+
+            insert_data(table, fields, values, (err) => {
+                console.log(err);
+            });
+
+            // Добавление доброго дела в табличку DEED_BY_USER
+            table = `DEED_BY_USER`;
+            fields = `id_user,id_deed,id_msg`;
+            values = `${chatId},'${document.file_unique_id}',0`;
+            insert_data(table, fields, values, (err) => {
+                console.log(err);
+            });
+        }
+    });
+
+    console.log(`send file to group ${groupId}`)
+    await bot.sendVideo(groupId, document.file_id, {
+        caption: answer,
+        parse_mode: `HTML`,
+        disable_notification: true,
+        reply_markup: {
+            resize_keyboard: true,
+            inline_keyboard: [
+                [
+                    {text: 'Дело доброе', callback_data: `yes`},
+                    {text: 'Не очень доброе', callback_data: `no`}
+                ]
+            ]
+        }
+    }, () => {}).then();
+}
 async function handler_tag_received(msg, karma, answer) {
     update_karma(msg.from.id, karma);
     bot.sendMessage(groupId, answer, {
