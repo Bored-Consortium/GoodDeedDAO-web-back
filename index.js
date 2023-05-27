@@ -21,8 +21,6 @@ const dobro_tag = `#бытьдобру`;
 const groupId = Number(process.env.GROUP_ID);
 const token = process.env.BOT_TOKEN;
 
-const webAppUrl = 'https://iridescent-brigadeiros-13cf7d.netlify.app';
-
 // Create a bot that uses 'polling' to fetch new updates
 const bot = new TelegramBot(token, {polling: true});
 const app = express();
@@ -40,17 +38,16 @@ bot.on('text', async (msg) => {
         return;
     }
 
-    console.log(`user ${username} send text`)
+    console.log(`user ${username} send text: ${text}`)
 
     if (chat_id === groupId) {
         if (text?.toLowerCase().includes(dobro_tag)) {
             const karma = 5;
-            await handler_tag_received(msg, karma);
+            const answer = `@${msg.from.username}, спасибо за твое пожелание! Держи +${karma} Karma`;
+            await handler_tag_received(msg, karma, answer);
         }
-        return;
-    }
 
-    if (text === '/start') {
+    } else if (text === '/start') {
         cmd_handler_start(chat_id, username);
     } else if (text === '/help' || text === 'О боте') {
         cmd_handler_info(chat_id);
@@ -63,7 +60,7 @@ bot.on('text', async (msg) => {
     } else if (text === '/addphoto' || text === 'Фото') {
         cmd_handler_add_photo(chat_id);
     } else if (text === '/addvideo' || text === 'Видео') {
-        await handler_video_received(chat_id);
+        cmd_handler_add_video(chat_id);
     } else {
         await handler_unknown_message(chat_id);
     }
@@ -90,9 +87,10 @@ bot.on('photo', async (msg) => {
 
     if (chat_id === groupId) {
         console.log(`message from group ${chat_id}`)
-        if (text?.toLowerCase().includes(dobro_tag) || is_tag_in_caption) {
+        if (caption?.toLowerCase().includes(dobro_tag) || is_tag_in_caption) {
             const karma = 5;
-            await handler_tag_received(msg, karma);
+            const answer = `@${msg.from.username}, спасибо за твое прекрасное фото! Держи +${karma} Karma`;
+            await handler_tag_received(msg, karma, answer);
         }
         return;
     }
@@ -101,7 +99,35 @@ bot.on('photo', async (msg) => {
 });
 
 bot.on('video', async (msg) => {
+    const chat_id = msg.chat.id;
+    const username = msg.from.username;
 
+    if (!chat_id) {
+        console.log('chat_id in msg is null');
+        return;
+    }
+
+    console.log(`user ${username} video photo`)
+
+    let video, caption, is_tag_in_caption = false;
+    if (msg.video) {
+        video = msg.video;
+        caption = msg.caption;
+        is_tag_in_caption = caption?.toLowerCase().includes(dobro_tag);
+        console.log(`in message: video: ${video.file_id}, caption: "${caption}", tag: ${is_tag_in_caption}`)
+    }
+
+    if (chat_id === groupId) {
+        console.log(`message from group ${chat_id}`)
+        if (caption?.toLowerCase().includes(dobro_tag) || is_tag_in_caption) {
+            const karma = 5;
+            const answer = `@${msg.from.username}, спасибо за это прекрасное видео! Держи +${karma} Karma`;
+            await handler_tag_received(msg, karma, answer);
+        }
+        return;
+    }
+
+    await handler_video_received(chat_id, username, video, caption);
 });
 
 bot.on('callback_query', function onCallbackQuery(callbackQuery) {
@@ -119,14 +145,17 @@ bot.on('callback_query', function onCallbackQuery(callbackQuery) {
         message_id: msg.message_id,
     };
 
-    let photo_unique_id;
+    let file_unique_id;
     if (msg.photo) {
-        photo_unique_id = msg.photo[msg.photo.length - 1].file_unique_id;
+        file_unique_id = msg.photo[msg.photo.length - 1].file_unique_id;
+    }
+    if (msg.video) {
+        file_unique_id = msg.video.file_unique_id;
     }
 
-    is_voting_finished(photo_unique_id, (is_voting_finished, upvotes, downvotes) => {
+    is_voting_finished(file_unique_id, (is_voting_finished, upvotes, downvotes) => {
         const deed = {
-            id: photo_unique_id,
+            id: file_unique_id,
             upvotes: upvotes,
             downvotes: downvotes,
             finished: is_voting_finished,
@@ -184,8 +213,8 @@ app.post('/web-data', async (req, res) => {
 })
 
 
-function is_voting_finished(photo_id, callback) {
-    select_row_from_table('DEEDS', 'id_deed', `'${photo_id}'`, (row) => {
+function is_voting_finished(file_unique_id, callback) {
+    select_row_from_table('DEEDS', 'id_deed', `'${file_unique_id}'`, (row) => {
         if (row) {
             if (row?.is_validated === 1 || row?.is_validated === -1) {
                 callback(true, row?.upvote, row?.downvote);
@@ -474,6 +503,11 @@ function cmd_handler_add_photo(chatId) {
     bot.sendMessage(chatId, answer, {}).then();
 }
 
+function cmd_handler_add_video(chatId) {
+    const answer = `Пришли мне видео`;
+    bot.sendMessage(chatId, answer, {}).then();
+}
+
 async function handler_photo_received(chatId, username, photo, caption) {
     console.log(`handler_photo_received called by ${username} from chat ${chatId} with caption "${caption}"`)
     const answer = `Пользователь @${username} прислал новое доброе дело! #БытьДобру\n` +
@@ -520,14 +554,55 @@ async function handler_photo_received(chatId, username, photo, caption) {
     }, () => {}).then();
 }
 
-async function handler_video_received(chat_id) {
-    const answer = `Пока что я не умею обрабатывать видео, но обязательно скоро научусь!`;
-    bot.sendMessage(chat_id, answer, {}).then();
+async function handler_video_received(chatId, username, video, caption) {
+    console.log(`handler_video_received called by ${username} from chat ${chatId} with caption "${caption}"`)
+    const answer = `Пользователь @${username} прислал новое доброе дело! #БытьДобру\n` +
+        `\nОпиcание:\n` +
+        `<i>${caption}</i>\n`;
+
+    // add deed to
+    const value = `'${video.file_unique_id}'`;
+    console.log(`received video with file_unique_id ${video.file_unique_id}`)
+    await select_row_from_table('DEEDS', 'id_deed', value, (row) => {
+        if (!row) {
+            const text = `This is a sample text`;
+            let table = 'DEEDS';
+            let fields = `id_deed,upvote,downvote,is_validated,description,type`;
+            let values = `${value},0,0,0,'${text}',2`;
+
+            insert_data(table, fields, values, (err) => {
+                console.log(err);
+            });
+
+            // Добавление доброго дела в табличку DEED_BY_USER
+            table = `DEED_BY_USER`;
+            fields = `id_user,id_deed,id_msg`;
+            values = `${chatId},'${video.file_unique_id}',0`;
+            insert_data(table, fields, values, (err) => {
+                console.log(err);
+            });
+        }
+    });
+
+    console.log(`send video to group ${groupId}`)
+    await bot.sendVideo(groupId, video.file_id, {
+        caption: answer,
+        parse_mode: `HTML`,
+        disable_notification: true,
+        reply_markup: {
+            resize_keyboard: true,
+            inline_keyboard: [
+                [
+                    {text: 'Дело доброе', callback_data: `yes`},
+                    {text: 'Не очень доброе', callback_data: `no`}
+                ]
+            ]
+        }
+    }, () => {}).then();
 }
 
-async function handler_tag_received(msg, karma) {
+async function handler_tag_received(msg, karma, answer) {
     update_karma(msg.from.id, karma);
-    const answer = `@${msg.from.username}, спасибо за твое пожелание! Держи +${karma} Karma`;
     bot.sendMessage(groupId, answer, {
         reply_to_message_id: msg.message_id,
     }).then();
@@ -579,6 +654,7 @@ function select_data_from_table(table, condition, value, callback) {
 
 function select_row_from_table(table, condition, value, callback) {
     const qry = `SELECT * FROM ${table} WHERE ${condition}=${value}`;
+    console.log(`select_row_from_table qry: ${qry}`)
     db.get(qry, [], (err, r) => {
         if (err) return console.error(err.message);
         callback(r);
@@ -588,6 +664,7 @@ function select_row_from_table(table, condition, value, callback) {
 function insert_data(table, fields, values, callback) {
     let qry;
     qry = `INSERT INTO ${table}(${fields}) VALUES(${values})`;
+    console.log(`insert_data qry: ${qry}`)
     db.run(qry, [], (err) => {
         callback(err);
     });
