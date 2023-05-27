@@ -18,7 +18,7 @@ create_tables();
 const start_karma = 10;
 const dobro_tag = `#бытьдобру`;
 
-const groupId = process.env.GROUP_ID;
+const groupId = Number(process.env.GROUP_ID);
 const token = process.env.BOT_TOKEN;
 
 const webAppUrl = 'https://iridescent-brigadeiros-13cf7d.netlify.app';
@@ -26,8 +26,6 @@ const webAppUrl = 'https://iridescent-brigadeiros-13cf7d.netlify.app';
 // Create a bot that uses 'polling' to fetch new updates
 const bot = new TelegramBot(token, {polling: true});
 const app = express();
-
-const PORT = process.env.PROD_PORT;
 
 app.use(express.json());
 app.use(cors())
@@ -41,6 +39,8 @@ bot.on('text', async (msg) => {
         console.log('chat_id in msg is null');
         return;
     }
+
+    console.log(`user ${username} send text`)
 
     if (chat_id === groupId) {
         if (text?.toLowerCase().includes(dobro_tag)) {
@@ -78,14 +78,18 @@ bot.on('photo', async (msg) => {
         return;
     }
 
+    console.log(`user ${username} send photo`)
+
     let photo, caption, is_tag_in_caption = false;
     if (msg.photo) {
         photo = msg.photo[msg.photo.length - 1];
         caption = msg.caption;
         is_tag_in_caption = caption?.toLowerCase().includes(dobro_tag);
+        console.log(`in message: photo: ${photo.file_id}, caption: "${caption}", tag: ${is_tag_in_caption}`)
     }
 
     if (chat_id === groupId) {
+        console.log(`message from group ${chat_id}`)
         if (text?.toLowerCase().includes(dobro_tag) || is_tag_in_caption) {
             const karma = 5;
             await handler_tag_received(msg, karma);
@@ -178,8 +182,6 @@ app.post('/web-data', async (req, res) => {
          return res.status(500).json({id: queryId, error: e});
     }
 })
-
-app.listen(PORT, () => console.log('server started on PORT ' + PORT));
 
 
 function is_voting_finished(photo_id, callback) {
@@ -473,13 +475,14 @@ function cmd_handler_add_photo(chatId) {
 }
 
 async function handler_photo_received(chatId, username, photo, caption) {
+    console.log(`handler_photo_received called by ${username} from chat ${chatId} with caption "${caption}"`)
     const answer = `Пользователь @${username} прислал новое доброе дело! #БытьДобру\n` +
     `\nОпиcание:\n` +
     `<i>${caption}</i>\n`;
 
     // add deed to
     const value = `'${photo.file_unique_id}'`;
-    select_row_from_table('DEEDS', 'id_deed', value, (row) => {
+    await select_row_from_table('DEEDS', 'id_deed', value, (row) => {
         if (!row) {
             const text = `This is a sample text`;
             let table = 'DEEDS';
@@ -500,6 +503,7 @@ async function handler_photo_received(chatId, username, photo, caption) {
         }
     });
 
+    console.log(`sendin' photo to group ${groupId}`)
     await bot.sendPhoto(groupId, photo.file_id, {
         caption: answer,
         parse_mode: `HTML`,
@@ -566,11 +570,10 @@ function create_tables () {
 
 function select_data_from_table(table, condition, value, callback) {
     const qry = `SELECT * FROM ${table} WHERE ${condition}=${value};`;
-    console.log(qry);
+    console.log(`select_data_from_table called with qry: ${qry}`);
     db.all(qry, [], (err, results) => {
         if (err) return console.error(err.message);
         callback(results);
-        // console.log(results);
     });
 }
 
