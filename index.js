@@ -32,19 +32,35 @@ bot.on('message', async (msg) => {
     console.log(`message received: ${msg.photo}, ${msg.video}, ${msg.document}, ${msg.animation}`)
 })
 
+bot.on('inline_query', async (inlineQuery) => {
+    console.log(`inline_query received: ${msg.photo}, ${msg.video}, ${msg.document}, ${msg.animation}`)
+    const result = {}
+    await bot.answerInlineQuery(inlineQuery.id, "hi man", {})
+})
+
 bot.on('text', async (msg) => {
     const chat_id = msg.chat.id;
     const text = msg.text;
-    const username = msg.from.username;
+    const from_user = {
+        id: msg.from.id,
+        username: msg.from.username,
+    }
 
     if (!chat_id) {
         console.log('chat_id in msg is null');
         return;
     }
 
-    console.log(`user ${username} send text: ${text}`)
+    console.log(`user ${from_user.username} send text: ${text}`)
 
     if (chat_id === groupId) {
+        if (text?.toLowerCase().includes("/addkarma")) {
+            const this_msg_id = msg.message_id
+            const descr = text.slice(10,);
+            console.log(`deed description:`, descr)
+            await cmd_handler_add_karma(from_user, descr, this_msg_id, msg.reply_to_message);
+        }
+
         if (text?.toLowerCase().includes(dobro_tag)) {
             const karma = 5;
             const answer = `@${msg.from.username}, спасибо за твое пожелание! Держи +${karma} Karma`;
@@ -52,7 +68,7 @@ bot.on('text', async (msg) => {
         }
 
     } else if (text === '/start') {
-        cmd_handler_start(chat_id, username);
+        cmd_handler_start(chat_id, from_user.username);
     } else if (text === '/help' || text === 'О боте') {
         cmd_handler_info(chat_id);
     } else if (text === '/userinfo' || text === 'Мой Аватар') {
@@ -177,23 +193,26 @@ bot.on('callback_query', function onCallbackQuery(callbackQuery) {
         role: 'validator',
     };
     const msg = callbackQuery.message;
-    const opts = {
-        caption: msg.caption,
+    let opts = {
+        caption: msg.text ? msg.text : msg.caption,
         chat_id: msg.chat.id,
         message_id: msg.message_id,
+        text_type: `caption`,
     };
 
     let file_unique_id;
     if (msg.photo) {
         file_unique_id = msg.photo[msg.photo.length - 1].file_unique_id;
-    }
-    if (msg.video) {
+    } else if (msg.video) {
         file_unique_id = msg.video.file_unique_id;
-    }
-    if (msg.document) {
+    } else if (msg.document) {
         file_unique_id = msg.document.file_unique_id;
+    } else {
+        file_unique_id = String(msg.reply_to_message.message_id);
+        opts.text_type = 'text';
     }
 
+    console.log(`opts: ${opts.caption}, ${opts.chat_id}, ${opts.message_id}, ${opts.text_type}`)
     is_voting_finished(file_unique_id, (is_voting_finished, upvotes, downvotes) => {
         const deed = {
             id: file_unique_id,
@@ -201,6 +220,7 @@ bot.on('callback_query', function onCallbackQuery(callbackQuery) {
             downvotes: downvotes,
             finished: is_voting_finished,
         };
+        console.log(`deed: ${deed.id}, ${deed.upvotes}, ${deed.downvotes}, ${deed.finished}`)
         if (deed.finished) {
             bot.answerCallbackQuery(callbackQuery.id, {
                 text: `Голосование по этому делу уже завершилось`,
@@ -266,34 +286,55 @@ function is_voting_finished(file_unique_id, callback) {
     });
 }
 
-//function if_voting_is_finished() {}
 
 function set_voting_finished(id_photo, result, username, karma, opts) {
     update_voting_result(id_photo, result);
-    let res = ``;
-    if (result === 1) {
-        res = `Доброе дело принято и будет выпущено в виде NFT в Галерее Добра!`;
-    } else if (result === -1) {
-        res = `Доброе дело не принято.`;
-    }
 
-    const cap = opts.caption +
-                    `\n\n<b>Голосование закончено!</b>` +
-                    `\n<b>Результат</b>: ${res}` +
-                    `\n@${username} получил ${karma} Karma!`;
-    bot.editMessageCaption(cap, {
-        parse_mode: `HTML`,
-        chat_id: groupId,
-        message_id: opts.message_id,
-        reply_markup: {
-            resize_keyboard: true,
-            inline_keyboard: [
-                [
-                    {text: 'Голосование закончено', callback_data: `finished`},
-                ]
-            ]
+    let res;
+    if (opts.text_type === 'caption') {
+        if (result === 1) {
+            res = `Доброе дело принято и будет выпущено в виде NFT в Галерее Добра!`;
+        } else if (result === -1) {
+            res = `Доброе дело не принято.`;
         }
-    }).then();
+
+        const cap = opts.caption +
+            `\n\n<b>Голосование закончено!</b>` +
+            `\n<b>Результат</b>: ${res}` +
+            `\n@${username} получил ${karma} Karma!`;
+
+        bot.editMessageCaption(cap, {
+            parse_mode: `HTML`,
+            chat_id: groupId,
+            message_id: opts.message_id,
+            reply_markup: {
+                resize_keyboard: true,
+                inline_keyboard: [
+                    [
+                        {text: 'Голосование закончено', callback_data: `finished`},
+                    ]
+                ]
+            }
+        }).then();
+    } else if (opts.text_type === 'text') {
+        const cap = opts.caption +
+            `\n\n<b>Голосование закончено!</b>` +
+            `\n@${username} получил ${karma} Karma!`;
+
+        bot.editMessageText(cap, {
+            parse_mode: `HTML`,
+            chat_id: groupId,
+            message_id: opts.message_id,
+            reply_markup: {
+                resize_keyboard: true,
+                inline_keyboard: [
+                    [
+                        {text: 'Голосование закончено', callback_data: `finished`},
+                    ]
+                ]
+            }
+        }).then();
+    }
 
     /* Add Karma to voters */
     const voter_karma = Math.ceil(karma * 0.03);
@@ -365,49 +406,38 @@ function get_user_by_deed(photo_unique_id, callback){
 
 function handle_new_vote(deed, opts, creator, sender) {
     const new_line = deed.downvotes === 0 && deed.upvotes === 0 ? `\n` : ``;
+
+    let res;
     if (sender.action === 'yes') {
         update_votes(deed.id, `upvote`);
         opts.caption = opts.caption + `${new_line}\n@${sender.username} проголосовал "за"`;
-        bot.editMessageCaption(opts.caption, {
-            chat_id: groupId,
-            //parse_mode: `Markdown`,
-            message_id: opts.message_id,
-            reply_markup: {
-                resize_keyboard: true,
-                inline_keyboard: [
-                    [
-                        {text: 'Дело доброе', callback_data: `yes`},
-                        {text: 'Не очень доброе', callback_data: `no`}
-                    ]
-                ]
-            }
-        }).then();
-
-        if (deed.upvotes + 1 === 5) {
-            const karma = 50;
-            set_voting_finished(deed.id, 1, creator.username, karma, opts);
-            update_karma(creator.id, karma);
-            update_add_deed(creator.id);
-            const answer = 'Поздравляю, ты сделал Доброе Дело! Я начислил тебе 50 Karma';
-            bot.sendMessage(creator.id, answer, {
-                parse_mode: `Markdown`,
-            }).then();
-
-        } else {
-            bot.answerCallbackQuery(sender.callback_id, {
-                text: `Голос "за" дело учтён!`,
-            }).then();
+        const karma = 50;
+        res = {
+            karma: karma,
+            result: 1,
+            answer: `Поздравляю, ты сделал Доброе Дело! Я начислил тебе ${karma} _Karma_`,
+            callback_answer: `Голос "за" дело учтён!`,
         }
-
     } else if (sender.action === `no`) {
         update_votes(deed.id, `downvote`);
         opts.caption = opts.caption + `${new_line}\n@${sender.username} проголосовал "против"`;
+        const karma = 5;
+        res = {
+            karma: karma,
+            result: -1,
+            answer: `Сообщество не посчитало это дело достаточно добрым. Я начислил тебе утешительные ${karma} _Karma_!`,
+            callback_answer: `Голос "против" учтён!`,
+        }
+    } else {
+        console.log('You hit');
+    }
+
+    if (opts.text_type === 'caption') {
         bot.editMessageCaption(opts.caption, {
             chat_id: groupId,
             //parse_mode: `Markdown`,
             message_id: opts.message_id,
             reply_markup: {
-                resize_keyboard: true,
                 inline_keyboard: [
                     [
                         {text: 'Дело доброе', callback_data: `yes`},
@@ -416,23 +446,41 @@ function handle_new_vote(deed, opts, creator, sender) {
                 ]
             }
         }).then();
-
-        if (deed.downvotes + 1 === 5) {
-            const karma = 5;
-            set_voting_finished(deed.id, -1, creator.username, karma, opts);
-            update_karma(creator.id, karma);
-            const answer = 'Сообщество не посчитало это дело достаточно добрым. Я начислил тебе утешительные 5 _Karma_!';
-            bot.sendMessage(creator.id, answer, {
-                parse_mode: `Markdown`,
-            }).then();
-        } else {
-            bot.answerCallbackQuery(sender.callback_id, {
-                text: `Голос против этого дела учтён!`,
-            }).then();
+    } else if (opts.text_type === 'text') {
+        if (sender.action  === 'yes') {
+            res.karma =  process.env.ADD_KARMA_BY_USER;
+            res.answer = `Поздравляю, ты сделал Доброе Дело! Я начислил тебе ${res.karma} _Karma_`;
+        } else if (sender.action  === 'no') {
+            res.karma =  1;
+            res.answer = `Было запущено голосование, но сообщество не посчитало это дело достаточно добрым. Начислил тебе утешительные ${res.karma} Karma`;
         }
+        bot.editMessageText(opts.caption, {
+            chat_id: groupId,
+            //parse_mode: `Markdown`,
+            message_id: opts.message_id,
+            reply_markup: {
+                inline_keyboard: [
+                    [
+                        {text: 'Заслужил!', callback_data: `yes`},
+                        {text: 'Пока рано', callback_data: `no`}
+                    ]
+                ]
+            }
+        }).then();
+    }
+
+    if (deed.upvotes + 1 === 5 || deed.downvotes + 1 === 5) {
+        set_voting_finished(deed.id, res.result, creator.username, res.karma, opts);
+        update_karma(creator.id, res.karma);
+        update_add_deed(creator.id);
+        bot.sendMessage(creator.id, res.answer, {
+            parse_mode: `Markdown`,
+        }).then();
 
     } else {
-        console.log('You hit');
+        bot.answerCallbackQuery(sender.callback_id, {
+            text: res.callback_answer,
+        }).then();
     }
 }
 
@@ -555,17 +603,68 @@ function cmd_handler_add_file(chatId) {
     bot.sendMessage(chatId, answer, {}).then();
 }
 
+async function cmd_handler_add_karma(from_user, descr, msg_id, reply_to_msg) {
+    if (!reply_to_msg) {
+        const answer = `Вы не выбрали сообщение. Ответьте на сообщение пользователя командой "/addkarma <i>За то, что..</i>", чтобы инициировать голосование о начислении кармы.`;
+        await bot.sendMessage(groupId, answer, {
+            reply_to_message_id: msg_id,
+            caption: answer,
+            parse_mode: `HTML`,
+            disable_notification: true,
+        }).then();
+    } else {
+        const answer = `Пользователь @${from_user.username} инициировал голосование о начислении ${process.env.ADD_KARMA_BY_USER} Karma @${reply_to_msg.from.username}.`
+            + `\n\nОпиcание:\n`
+            + `<i>${descr}</i>`;
+
+        const value = `'${reply_to_msg.message_id}'`;
+        await select_row_from_table('DEEDS', 'id_deed', value, (row) => {
+            if (!row) {
+                const text = `sample`;
+                let table = 'DEEDS';
+                let fields = `id_deed,upvote,downvote,is_validated,description,type`;
+                let values = `'${reply_to_msg.message_id}',0,0,0,'${text}',4`;
+
+                insert_data(table, fields, values, (err) => {
+                    console.log(err);
+                });
+
+                table = `DEED_BY_USER`;
+                fields = `id_user,id_deed,id_msg`;
+                values = `${reply_to_msg.from.id},'${reply_to_msg.message_id}',0`;
+                insert_data(table, fields, values, (err) => {
+                    console.log(err);
+                });
+            }
+        });
+
+        await bot.sendMessage(groupId, answer, {
+            reply_to_message_id: reply_to_msg.message_id,
+            caption: answer,
+            parse_mode: `HTML`,
+            disable_notification: true,
+            reply_markup: {
+                inline_keyboard: [
+                    [
+                        {text: 'Заслужил!', callback_data: `yes`},
+                        {text: 'Пока рано', callback_data: `no`}
+                    ]
+                ]
+            }
+        }).then();
+    }
+}
+
 async function handler_photo_received(chatId, username, photo, caption) {
     console.log(`handler_photo_received called by ${username} from chat ${chatId} with caption "${caption}"`)
     const answer = `Пользователь @${username} прислал новое доброе дело! #БытьДобру\n` +
     `\nОпиcание:\n` +
     `<i>${caption}</i>\n`;
 
-    // add deed to
     const value = `'${photo.file_unique_id}'`;
     await select_row_from_table('DEEDS', 'id_deed', value, (row) => {
         if (!row) {
-            const text = `This is a sample text`;
+            const text = `sample`;
             let table = 'DEEDS';
             let fields = `id_deed,upvote,downvote,is_validated,description,type`;
             let values = `'${photo.file_unique_id}',0,0,0,'${text}',1`;
@@ -574,7 +673,6 @@ async function handler_photo_received(chatId, username, photo, caption) {
                 console.log(err);
             });
 
-            // Добавление доброго дела в табличку DEED_BY_USER
             table = `DEED_BY_USER`;
             fields = `id_user,id_deed,id_msg`;
             values = `${chatId},'${photo.file_unique_id}',0`;
@@ -612,7 +710,7 @@ async function handler_video_received(chatId, username, video, caption) {
     console.log(`received video with file_unique_id ${video.file_unique_id}`)
     await select_row_from_table('DEEDS', 'id_deed', value, (row) => {
         if (!row) {
-            const text = `This is a sample text`;
+            const text = `sample`;
             let table = 'DEEDS';
             let fields = `id_deed,upvote,downvote,is_validated,description,type`;
             let values = `${value},0,0,0,'${text}',2`;
@@ -659,7 +757,7 @@ async function handler_file_received(chatId, username, document, caption) {
     console.log(`received file with file_unique_id ${document.file_unique_id}`)
     await select_row_from_table('DEEDS', 'id_deed', value, (row) => {
         if (!row) {
-            const text = `This is a sample text`;
+            const text = `sample`;
             let table = 'DEEDS';
             let fields = `id_deed,upvote,downvote,is_validated,description,type`;
             let values = `${value},0,0,0,'${text}',3`;
@@ -679,7 +777,7 @@ async function handler_file_received(chatId, username, document, caption) {
     });
 
     console.log(`send file to group ${groupId}`)
-    await bot.sendVideo(groupId, document.file_id, {
+    await bot.sendDocument(groupId, document.file_id, {
         caption: answer,
         parse_mode: `HTML`,
         disable_notification: true,
