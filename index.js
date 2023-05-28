@@ -4,6 +4,16 @@ const cors = require('cors');
 const dotenv = require('dotenv').config();
 const sqlite3 = require('sqlite3').verbose();
 
+const START_KARMA = Number(process.env.START_KARMA);
+const VOTES_TO_APPROVE = Number(process.env.VOTES_FOR_APPROVE);
+const KARMA_FOR_GOOD_DEED = Number(process.env.KARMA_FOR_GOOD_DEED);
+const KARMA_FOR_GOOD_DEED_FAILED = Number(process.env.KARMA_FOR_GOOD_DEED_FAILED)
+const KARMA_BY_USER_VOTING = Number(process.env.KARMA_BY_USER_VOTING)
+const KARMA_BY_USER_VOTING_FAILED = Number(process.env.KARMA_BY_USER_VOTING_FAILED)
+const KARMA_FOR_TAG = Number(process.env.KARMA_FOR_TAG)
+const KARMA_KOEF_FOR_VOTERS = Number(process.env.KARMA_KOEF_FOR_VOTERS)
+
+console.log(VOTES_TO_APPROVE, typeof VOTES_TO_APPROVE)
 
 const db = new sqlite3.Database('./data_folder/gooddeeds.db',(err) => {
     if (err) {
@@ -15,7 +25,6 @@ const db = new sqlite3.Database('./data_folder/gooddeeds.db',(err) => {
 
 create_tables();
 
-const start_karma = 10;
 const dobro_tag = `#бытьдобру`;
 
 const groupId = Number(process.env.GROUP_ID);
@@ -62,7 +71,7 @@ bot.on('text', async (msg) => {
         }
 
         if (text?.toLowerCase().includes(dobro_tag)) {
-            const karma = 5;
+            const karma = KARMA_FOR_TAG;
             const answer = `@${msg.from.username}, спасибо за твое пожелание! Держи +${karma} Karma`;
             await handler_tag_received(msg, karma, answer);
         }
@@ -110,7 +119,7 @@ bot.on('photo', async (msg) => {
     if (chat_id === groupId) {
         console.log(`message from group ${chat_id}`)
         if (caption?.toLowerCase().includes(dobro_tag) || is_tag_in_caption) {
-            const karma = 5;
+            const karma = KARMA_FOR_TAG;
             const answer = `@${msg.from.username}, спасибо за твое прекрасное фото! Держи +${karma} Karma`;
             await handler_tag_received(msg, karma, answer);
         }
@@ -142,7 +151,7 @@ bot.on('video', async (msg) => {
     if (chat_id === groupId) {
         console.log(`message from group ${chat_id}`)
         if (caption?.toLowerCase().includes(dobro_tag) || is_tag_in_caption) {
-            const karma = 5;
+            const karma = KARMA_FOR_TAG;
             const answer = `@${msg.from.username}, спасибо за это прекрасное видео! Держи +${karma} Karma`;
             await handler_tag_received(msg, karma, answer);
         }
@@ -174,7 +183,7 @@ bot.on('document', async (msg) => {
     if (chat_id === groupId) {
         console.log(`message from group ${chat_id}`)
         if (caption?.toLowerCase().includes(dobro_tag) || is_tag_in_caption) {
-            const karma = 5;
+            const karma = KARMA_FOR_TAG;
             const answer = `@${msg.from.username}, спасибо за этот прекрасный файл! Держи +${karma} Karma`;
             await handler_tag_received(msg, karma, answer);
         }
@@ -336,8 +345,7 @@ function set_voting_finished(id_photo, result, username, karma, opts) {
         }).then();
     }
 
-    /* Add Karma to voters */
-    const voter_karma = Math.ceil(karma * 0.03);
+    const voter_karma = Math.ceil(karma * KARMA_KOEF_FOR_VOTERS);
     add_karma_to_voters(id_photo, result, voter_karma);
 }
 
@@ -411,7 +419,7 @@ function handle_new_vote(deed, opts, creator, sender) {
     if (sender.action === 'yes') {
         update_votes(deed.id, `upvote`);
         opts.caption = opts.caption + `${new_line}\n@${sender.username} проголосовал "за"`;
-        const karma = 50;
+        const karma = KARMA_FOR_GOOD_DEED;
         res = {
             karma: karma,
             result: 1,
@@ -421,7 +429,7 @@ function handle_new_vote(deed, opts, creator, sender) {
     } else if (sender.action === `no`) {
         update_votes(deed.id, `downvote`);
         opts.caption = opts.caption + `${new_line}\n@${sender.username} проголосовал "против"`;
-        const karma = 5;
+        const karma = KARMA_FOR_GOOD_DEED_FAILED;
         res = {
             karma: karma,
             result: -1,
@@ -448,10 +456,10 @@ function handle_new_vote(deed, opts, creator, sender) {
         }).then();
     } else if (opts.text_type === 'text') {
         if (sender.action  === 'yes') {
-            res.karma =  process.env.ADD_KARMA_BY_USER;
+            res.karma =  KARMA_BY_USER_VOTING;
             res.answer = `Поздравляю, ты сделал Доброе Дело! Я начислил тебе ${res.karma} _Karma_`;
         } else if (sender.action  === 'no') {
-            res.karma =  1;
+            res.karma = KARMA_BY_USER_VOTING_FAILED;
             res.answer = `Было запущено голосование, но сообщество не посчитало это дело достаточно добрым. Начислил тебе утешительные ${res.karma} Karma`;
         }
         bot.editMessageText(opts.caption, {
@@ -469,7 +477,7 @@ function handle_new_vote(deed, opts, creator, sender) {
         }).then();
     }
 
-    if (deed.upvotes + 1 === 5 || deed.downvotes + 1 === 5) {
+    if (deed.upvotes + 1 === VOTES_TO_APPROVE || deed.downvotes + 1 === VOTES_TO_APPROVE) {
         set_voting_finished(deed.id, res.result, creator.username, res.karma, opts);
         update_karma(creator.id, res.karma);
         update_add_deed(creator.id);
@@ -493,14 +501,14 @@ function cmd_handler_start(chatId, username) {
         } else {
             const table = 'USERS';
             const fields = `id_user,'user_name','karma','deeds','validations'`;
-            const values = `${chatId},'${username}',${start_karma},0,0`;
+            const values = `${chatId},'${username}',${START_KARMA},0,0`;
 
             insert_data(table, fields, values, () => {});
-            answer = '🤖 Привет! Я, бот Хранитель Добра\n\n' +
-                '🌍 Добро пожаловать в Зов Добра!\n' +
-                '🙏 Здесь мы меняем мир к лучшему\n\n' +
-                '💫 Держи +10 Karma за регистрацию!\n\n' +
-                '⬇️ Выбери дальнейшее действие ⬇️';
+            answer = `🤖 Привет! Я, бот Хранитель Добра\n\n` +
+                `🌍 Добро пожаловать в Зов Добра!\n` +
+                `🙏 Здесь мы меняем мир к лучшему\n\n` +
+                `💫 Держи +${START_KARMA} Karma за регистрацию!\n\n` +
+                `⬇️ Выбери дальнейшее действие ⬇️`;
         }
 
         bot.sendMessage(chatId, answer, {
@@ -613,7 +621,7 @@ async function cmd_handler_add_karma(from_user, descr, msg_id, reply_to_msg) {
             disable_notification: true,
         }).then();
     } else {
-        const answer = `Пользователь @${from_user.username} инициировал голосование о начислении ${process.env.ADD_KARMA_BY_USER} Karma @${reply_to_msg.from.username}.`
+        const answer = `Пользователь @${from_user.username} инициировал голосование о начислении ${KARMA_BY_USER_VOTING} Karma @${reply_to_msg.from.username}.`
             + `\n\nОпиcание:\n`
             + `<i>${descr}</i>`;
 
