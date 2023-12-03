@@ -3,6 +3,7 @@ const express = require('express');
 const cors = require('cors');
 const dotenv = require('dotenv').config();
 const sqlite3 = require('sqlite3').verbose();
+const fs = require('fs')
 
 const START_KARMA = Number(process.env.START_KARMA);
 const VOTES_TO_APPROVE = Number(process.env.VOTES_FOR_APPROVE);
@@ -13,7 +14,10 @@ const KARMA_BY_USER_VOTING_FAILED = Number(process.env.KARMA_BY_USER_VOTING_FAIL
 const KARMA_FOR_TAG = Number(process.env.KARMA_FOR_TAG)
 const KARMA_KOEF_FOR_VOTERS = Number(process.env.KARMA_KOEF_FOR_VOTERS)
 
-console.log(VOTES_TO_APPROVE, typeof VOTES_TO_APPROVE)
+if (!fs.existsSync("./data_folder")) {
+    console.log(`Creating ./data_folder`)
+    fs.mkdirSync("./data_folder");
+}
 
 const db = new sqlite3.Database('./data_folder/gooddeeds.db',(err) => {
     if (err) {
@@ -263,24 +267,6 @@ bot.on('callback_query', function onCallbackQuery(callbackQuery) {
         });
     });
 });
-
-
-app.post('/web-data', async (req, res) => {
-    const {queryId, products = [], totalPrice} = JSON.parse(req.body);
-    try {
-        await bot.answerWebAppQuery(queryId, {
-            type: 'article',
-            id: queryId,
-            title: 'Успешная покупка',
-            input_message_content: {
-                message_text: ` Поздравляю с покупкой, вы приобрели товар на сумму ${totalPrice}, ${products.map(item => item.title).join(', ')}`
-            }
-        })
-        return res.status(200).json({res: 0});
-    } catch (e) {
-         return res.status(500).json({id: queryId, error: e});
-    }
-})
 
 
 function is_voting_finished(file_unique_id, callback) {
@@ -800,6 +786,7 @@ async function handler_file_received(chatId, username, document, caption) {
         }
     }, () => {}).then();
 }
+
 async function handler_tag_received(msg, karma, answer) {
     update_karma(msg.from.id, karma);
     bot.sendMessage(groupId, answer, {
