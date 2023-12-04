@@ -5,7 +5,7 @@
   "main": "index.js",
   "scripts": {
     "rebuild": "electron-rebuild -f -w sqlite3",
-    "start": "nodemon index.js"
+    "start": "node index.js"
   },
   "keywords": [],
   "author": "",

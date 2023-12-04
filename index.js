@@ -67,7 +67,8 @@ bot.on('text', async (msg) => {
     console.log(`user ${from_user.username} send text: ${text}`)
 
     if (chat_id === groupId) {
-        if (text?.toLowerCase().includes("/addkarma")) {
+        const addKarmaCommand = text.toLowerCase()
+        if (addKarmaCommand.includes("/addkarma")) {
             const this_msg_id = msg.message_id
             const descr = text.slice(10,);
             console.log(`deed description:`, descr)
