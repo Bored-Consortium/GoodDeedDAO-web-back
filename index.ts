@@ -8,51 +8,31 @@ import dobroDb from './sources/db.js';
 import { User, UserRole } from './sources/models/user.js'
 import { Deed } from './sources/models/deed.js';
 
-import {
-    cmd_handler_start,
-    cmd_handler_info,
-    cmd_handler_user_info,
-    cmd_handler_add_deed,
-    cmd_handler_back,
-    cmd_handler_add_photo,
-    cmd_handler_add_video,
-    cmd_handler_add_file,
-    cmd_handler_add_karma,
-    handler_photo_received,
-    handler_video_received,
-    handler_file_received,
-    handler_tag_received,
-    handler_unknown_message
-} from './sources/commandHandlers.js'
+import CommandHandler from './sources/commandHandler.js'
+import { TgBot } from './sources/tgBot.js';
 
 if (!fs.existsSync("./data_folder")) {
     console.log(`Creating ./data_folder`)
     fs.mkdirSync("./data_folder");
 }
 
+
+const botDobra = new TgBot()
+const cmdHandler = new CommandHandler(dobroDb, botDobra)
+
 const dobro_tag = `#бытьдобру`;
 
-const groupId: number = config.GROUP_ID;
-const token: string = config.BOT_TOKEN;
-
-// Create a bot that uses 'polling' to fetch new updates
-const bot: TelegramBot = new TelegramBot(token, {polling: true});
 const app = express();
 
 app.use(express.json());
 app.use(cors())
 
-bot.on('message', async (msg: TelegramBot.Message) => {
+
+botDobra.bot.on('message', async (msg: TelegramBot.Message) => {
     console.log(`message received: ${msg.photo}, ${msg.video}, ${msg.document}, ${msg.animation}`)
 })
 
-// bot.on('inline_query', async (inlineQuery) => {
-//     console.log(`inline_query received: ${msg.photo}, ${msg.video}, ${msg.document}, ${msg.animation}`)
-//     const result = {}
-//     await bot.answerInlineQuery(inlineQuery.id, "hi man", {})
-// })
-
-bot.on('text', async (msg) => {
+botDobra.bot.on('text', async (msg) => {
     const chat_id: number = msg.chat.id;
     const text: string = msg.text ? msg.text : "";
 
@@ -72,43 +52,43 @@ bot.on('text', async (msg) => {
 
     console.log(`user ${from_user.username} send text: ${text}`)
 
-    if (chat_id === groupId) {
+    if (chat_id === config.GROUP_ID) {
         const addKarmaCommand = text.toLowerCase()
         if (addKarmaCommand.includes("/addkarma")) {
             const this_msg_id = msg.message_id
             const descr = text.slice(10,);
             console.log(`deed description:`, descr)
-            await cmd_handler_add_karma(from_user, descr, this_msg_id, msg.reply_to_message);
+            await cmdHandler.add_karma(from_user, descr, this_msg_id, msg.reply_to_message);
         }
 
         if (text?.toLowerCase().includes(dobro_tag)) {
             const karma = config.KARMA_FOR_TAG;
             const answer = `@${from_user.username}, спасибо за твое пожелание! Держи +${karma} Karma`;
-            await handler_tag_received(msg, karma, answer);
+            await cmdHandler.tag_received(msg, karma, answer);
         }
 
     } else if (text === '/start') {
-        cmd_handler_start(chat_id, from_user.username);
+        cmdHandler.start(chat_id, from_user.username);
     } else if (text === '/help' || text === 'О боте') {
-        cmd_handler_info(chat_id);
+        cmdHandler.info(chat_id);
     } else if (text === '/userinfo' || text === 'Мой Аватар') {
-        cmd_handler_user_info(chat_id);
+        cmdHandler.user_info(chat_id);
     } else if (text === '/adddeed' || text === 'Добавить доброе дело') {
-        cmd_handler_add_deed(chat_id);
+        cmdHandler.add_deed(chat_id);
     } else if (text === '/back' || text === 'Назад') {
-        cmd_handler_back(chat_id);
+        cmdHandler.back(chat_id);
     } else if (text === '/addphoto' || text === 'Фото') {
-        cmd_handler_add_photo(chat_id);
+        cmdHandler.add_photo(chat_id);
     } else if (text === '/addvideo' || text === 'Видео') {
-        cmd_handler_add_video(chat_id);
+        cmdHandler.add_video(chat_id);
     } else if (text === '/addfile' || text === 'Файл') {
-        cmd_handler_add_file(chat_id);
+        cmdHandler.add_file(chat_id);
     } else {
-        await handler_unknown_message(chat_id);
+        await cmdHandler.unknown_message(chat_id);
     }
 });
 
-bot.on('photo', async (msg) => {
+botDobra.bot.on('photo', async (msg) => {
     const chat_id: number = msg.chat.id;
     const username: string | undefined = msg.from?.username;
 
@@ -131,20 +111,20 @@ bot.on('photo', async (msg) => {
     caption = msg.caption;
     console.log(`in message: photo: ${photo.file_id}, caption: "${caption}"`)
 
-    if (chat_id === groupId) {
+    if (chat_id === config.GROUP_ID) {
         console.log(`message from group ${chat_id}`)
         if (caption.toLowerCase().includes(dobro_tag)) {
             const karma = config.KARMA_FOR_TAG;
             const answer = `@${username}, спасибо за твое прекрасное фото! Держи +${karma} Karma`;
-            await handler_tag_received(msg, karma, answer);
+            await cmdHandler.tag_received(msg, karma, answer);
         }
         return;
     }
 
-    await handler_photo_received(chat_id, username, photo, caption);
+    await cmdHandler.photo_received(chat_id, username, photo, caption);
 });
 
-bot.on('video', async (msg) => {
+botDobra.bot.on('video', async (msg) => {
     const chat_id: number = msg.chat.id;
     const username: string | undefined = msg.from?.username;
 
@@ -166,20 +146,20 @@ bot.on('video', async (msg) => {
     caption = msg.caption;
     console.log(`in message: video: ${video.file_id}, caption: "${caption}"`)
 
-    if (chat_id === groupId) {
+    if (chat_id === config.GROUP_ID) {
         console.log(`message from group ${chat_id}`)
         if (caption?.toLowerCase().includes(dobro_tag)) {
             const karma = config.KARMA_FOR_TAG;
             const answer = `@${username}, спасибо за это прекрасное видео! Держи +${karma} Karma`;
-            await handler_tag_received(msg, karma, answer);
+            await cmdHandler.tag_received(msg, karma, answer);
         }
         return;
     }
 
-    await handler_video_received(chat_id, username, video, caption);
+    await cmdHandler.video_received(chat_id, username, video, caption);
 });
 
-bot.on('document', async (msg: TelegramBot.Message) => {
+botDobra.bot.on('document', async (msg: TelegramBot.Message) => {
     const chat_id = msg.chat.id;
     const username: string | undefined = msg.from?.username;
 
@@ -202,20 +182,20 @@ bot.on('document', async (msg: TelegramBot.Message) => {
     caption = msg.caption;
     console.log(`in message: file: ${document.file_id}, caption: "${caption}"`)
 
-    if (chat_id === groupId) {
+    if (chat_id === config.GROUP_ID) {
         console.log(`message from group ${chat_id}`)
         if (caption?.toLowerCase().includes(dobro_tag)) {
             const karma = config.KARMA_FOR_TAG;
             const answer = `@${username}, спасибо за этот прекрасный файл! Держи +${karma} Karma`;
-            await handler_tag_received(msg, karma, answer);
+            await cmdHandler.tag_received(msg, karma, answer);
         }
         return;
     }
 
-    await handler_file_received(chat_id, username, document, caption);
+    await cmdHandler.file_received(chat_id, username, document, caption);
 });
 
-bot.on('callback_query', function onCallbackQuery(callbackData) {
+botDobra.bot.on('callback_query', function onCallbackQuery(callbackData) {
     const sender: User = {
         id: callbackData.from.id,
         username: callbackData.from.username,
@@ -267,7 +247,7 @@ bot.on('callback_query', function onCallbackQuery(callbackData) {
         console.log(`deed: ${deed.id}, ${deed.upvotes}, ${deed.downvotes}, ${deed.isValidated}`)
 
         if (deed.isValidated) {
-            bot.answerCallbackQuery(callbackData.id, {
+            botDobra.bot.answerCallbackQuery(callbackData.id, {
                 text: `Голосование по этому делу уже завершилось`,
             }).then();
             return;
@@ -283,7 +263,7 @@ bot.on('callback_query', function onCallbackQuery(callbackData) {
             };
 
             if (creator.id === sender.id) {
-                bot.answerCallbackQuery(callbackData.id, {
+                botDobra.bot.answerCallbackQuery(callbackData.id, {
                     text: `Это Ваше дело, вы не можете голосовать`,
                 }).then();
                 return;
@@ -293,7 +273,7 @@ bot.on('callback_query', function onCallbackQuery(callbackData) {
                 if (!did_user_vote) {
                     handle_new_vote(deed, caption, msgId, text_type, callbackData, creator, sender);
                 } else {
-                    bot.answerCallbackQuery(callbackData.id, {
+                    botDobra.bot.answerCallbackQuery(callbackData.id, {
                         text: `Вы уже голосовали`,
                     }).then();
                 }
@@ -331,9 +311,9 @@ function set_voting_finished(id_photo: string, result: any, username: string | u
             `\n<b>Результат</b>: ${res}` +
             `\n@${username} получил ${karma} Karma!`;
 
-        bot.editMessageCaption(cap, {
+        botDobra.bot.editMessageCaption(cap, {
             parse_mode: `HTML`,
-            chat_id: groupId,
+            chat_id: config.GROUP_ID,
             message_id: result.messageId,
             reply_markup: {
                 inline_keyboard: [
@@ -348,9 +328,9 @@ function set_voting_finished(id_photo: string, result: any, username: string | u
             `\n\n<b>Голосование закончено!</b>` +
             `\n@${username} получил ${karma} Karma!`;
 
-        bot.editMessageText(cap, {
+        botDobra.bot.editMessageText(cap, {
             parse_mode: `HTML`,
-            chat_id: groupId,
+            chat_id: config.GROUP_ID,
             message_id: result.messageId,
             reply_markup: {
                 inline_keyboard: [
@@ -377,7 +357,7 @@ function add_karma_to_voters(id_photo: string, result: number, voter_karma: numb
             // Filter voters by their vote
             if (row.vote === result) {
                 dobroDb.update_karma(row.id_user, voter_karma);
-                bot.sendMessage(row.id_user, message, {
+                botDobra.bot.sendMessage(row.id_user, message, {
                     parse_mode: `Markdown`,
                 }).then();
             }
@@ -454,8 +434,8 @@ function handle_new_vote(deed: Deed, caption: string, messageId: number, textTyp
     }
 
     if (textType === 'caption') {
-        bot.editMessageCaption(caption, {
-            chat_id: groupId,
+        botDobra.bot.editMessageCaption(caption, {
+            chat_id: config.GROUP_ID,
             //parse_mode: `Markdown`,
             message_id: messageId,
             reply_markup: {
@@ -475,8 +455,8 @@ function handle_new_vote(deed: Deed, caption: string, messageId: number, textTyp
             res.karma = config.KARMA_BY_USER_VOTING_FAILED;
             res.answer = `Было запущено голосование, но сообщество не посчитало это дело достаточно добрым. Начислил тебе утешительные ${res.karma} Karma`;
         }
-        bot.editMessageText(caption, {
-            chat_id: groupId,
+        botDobra.bot.editMessageText(caption, {
+            chat_id: config.GROUP_ID,
             //parse_mode: `Markdown`,
             message_id: messageId,
             reply_markup: {
@@ -494,12 +474,12 @@ function handle_new_vote(deed: Deed, caption: string, messageId: number, textTyp
         set_voting_finished(deed.id, res, creator.username, res.karma);
         dobroDb.update_karma(creator.id, res.karma);
         dobroDb.update_add_deed(creator.id);
-        bot.sendMessage(creator.id, res.answer, {
+        botDobra.bot.sendMessage(creator.id, res.answer, {
             parse_mode: `Markdown`,
         }).then();
 
     } else {
-        bot.answerCallbackQuery(callbackData.id, {
+        botDobra.bot.answerCallbackQuery(callbackData.id, {
             text: res.callback_answer,
         }).then();
     }

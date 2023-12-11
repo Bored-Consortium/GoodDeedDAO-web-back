@@ -89,5 +89,6 @@ const tgBot = new TgBot()
 export default tgBot
 
 export {
+    TgBot,
     ParseMode
 }

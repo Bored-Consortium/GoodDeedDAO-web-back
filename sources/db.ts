@@ -131,3 +131,6 @@ class DatabaseDobra {
 
 const dobroDb = new DatabaseDobra('./data_folder/gooddeeds.db')
 export default dobroDb
+export {
+    DatabaseDobra
+}
