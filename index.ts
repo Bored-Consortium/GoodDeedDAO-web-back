@@ -9,15 +9,13 @@ import { User, UserRole } from './sources/models/user.js'
 import { Deed } from './sources/models/deed.js';
 
 import CommandHandler from './sources/commandHandler.js'
-import { TgBot } from './sources/tgBot.js';
+import botDobra from './sources/tgBot.js';
 
 if (!fs.existsSync("./data_folder")) {
     console.log(`Creating ./data_folder`)
     fs.mkdirSync("./data_folder");
 }
 
-
-const botDobra = new TgBot()
 const cmdHandler = new CommandHandler(dobroDb, botDobra)
 
 const dobro_tag = `#бытьдобру`;

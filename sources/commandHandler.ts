@@ -2,7 +2,7 @@ import { ParseMode, TgBot } from './tgBot.js'
 import { DatabaseDobra } from './db.js'
 import config from "./config.js";
 import { User } from './models/user.js'
-import { InlineKeyboardMarkup, Message, PhotoSize, Video, Document } from 'node-telegram-bot-api';
+import { InlineKeyboardMarkup, Message, PhotoSize, Video, Document, ReplyKeyboardMarkup } from 'node-telegram-bot-api';
 
 
 class CommandHandler {
@@ -26,14 +26,15 @@ class CommandHandler {
                     `⬇️ Выбери дальнейшее действие ⬇️`;
             }
     
-            const keyboard: InlineKeyboardMarkup = {
-                inline_keyboard: [
+            const keyboard: ReplyKeyboardMarkup = {
+                keyboard: [
                     [
                         {text: 'О боте'},
                         {text: 'Мой аватар'},
                         {text: 'Добавить доброе дело'}
                     ]
-                ]
+                ],
+                resize_keyboard: true
             }
             this.bot.sendMessage(chatId, answer, keyboard).then();
         });
@@ -43,14 +44,15 @@ class CommandHandler {
         const answer = `Я - бот Хранитель Зова Добра. Помогаю людям делать этот Мир добрее!
                         \n Подробное описание: https://telegra.ph/Pravila-blokchejn-agregatora-Dobryh-del-Zov-Dobra-12-05`;
         
-            const keyboard: InlineKeyboardMarkup = { 
-                inline_keyboard: [
+            const keyboard: ReplyKeyboardMarkup = { 
+                keyboard: [
                     [
                         {text: 'О боте'},
                         {text: 'Мой Аватар'},
                         {text: 'Добавить доброе дело'}
                     ]
-                ]
+                ],
+                resize_keyboard: true
             }
             this.bot.sendMessage(chatId, answer, keyboard).then();
     }
@@ -60,14 +62,15 @@ class CommandHandler {
             const answer =
                 `Твоя Karma: ${row?.karma} \nДобрые дела: ${row?.deeds} \nГолосования: ${row?.validations}`;
     
-            const keyboard: InlineKeyboardMarkup = { 
-                inline_keyboard: [
+            const keyboard: ReplyKeyboardMarkup = { 
+                keyboard: [
                     [
                         {text: 'О боте'},
                         {text: 'Мой Аватар'},
                         {text: 'Добавить доброе дело'}
                     ]
-                ]
+                ],
+                resize_keyboard: true
             }
     
             this.bot.sendMessage(chatId, answer, keyboard).then();
@@ -77,15 +80,16 @@ class CommandHandler {
     add_deed(chatId: number) {
         const answer = `Выбери тип доброго дела`;
     
-        const keyboard: InlineKeyboardMarkup = { 
-            inline_keyboard: [
+        const keyboard: ReplyKeyboardMarkup = { 
+            keyboard: [
                 [
                     {text: 'Назад'},
                     {text: 'Фото'},
                     {text: 'Видео'},
                     {text: 'Файл'}
                 ]
-            ]
+            ],
+            resize_keyboard: true
         }
     
         this.bot.sendMessage(chatId, answer, keyboard).then();
@@ -94,14 +98,15 @@ class CommandHandler {
     back(chatId: number) {
         const answer = `Вы перешли в основное меню`;
     
-        const keyboard: InlineKeyboardMarkup = { 
-            inline_keyboard: [
+        const keyboard: ReplyKeyboardMarkup = { 
+            keyboard: [
                 [
                     {text: 'О боте'},
                     {text: 'Мой Аватар'},
                     {text: 'Добавить доброе дело'}
                 ]
-            ]
+            ],
+            resize_keyboard: true
         }
     
         this.bot.sendMessage(chatId, answer, keyboard).then();

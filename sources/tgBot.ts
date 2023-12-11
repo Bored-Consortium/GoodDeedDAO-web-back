@@ -1,4 +1,4 @@
-import TelegramBot, { InlineKeyboardMarkup, Message, PhotoSize, Video, Document, User, FileBase } from "node-telegram-bot-api";
+import TelegramBot, { InlineKeyboardMarkup, Message, PhotoSize, Video, Document, User, FileBase, ReplyKeyboardMarkup } from "node-telegram-bot-api";
 import config from "./config.js";
 
 enum ParseMode {
@@ -17,7 +17,7 @@ class TgBot  {
     async sendMessage(
         chatId: number, 
         text: string, 
-        keyboard?: InlineKeyboardMarkup, 
+        keyboard?: InlineKeyboardMarkup | ReplyKeyboardMarkup, 
         parseMode: ParseMode = ParseMode.Markdown, 
         replyToMessageId?: number, 
         disableNotification: boolean = false
