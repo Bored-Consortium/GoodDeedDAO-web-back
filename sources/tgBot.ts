@@ -43,32 +43,46 @@ class TgBot  {
         replyToMessageId?: number, 
         disableNotification: boolean = false
     ) {
-        let func = undefined;
-
         if (this.isPhoto(attachment)) {
-            func = this.bot.sendPhoto
-        } else if (this.isVideo(attachment)) {
-            func = this.bot.sendVideo
-        } else if (this.isDocument(attachment)) {
-            func = this.bot.sendDocument
-        }
+            await this.bot.sendPhoto(
+                chatId, 
+                attachment.file_id,
+                {
+                    caption: caption,
+                    parse_mode: parseMode,
+                    disable_notification: disableNotification,
+                    reply_markup: keyboard
+                }
+            )
+            return;
 
-        if (typeof func === 'undefined') {
-            // TODO handle error
-            console.log(`Error at sendAttachment: bot function is undefined`)
+        } else if (this.isVideo(attachment)) {
+            await this.bot.sendVideo(
+                chatId, 
+                attachment.file_id,
+                {
+                    caption: caption,
+                    parse_mode: parseMode,
+                    disable_notification: disableNotification,
+                    reply_markup: keyboard
+                }
+            )
+            return;
+
+        } else if (this.isDocument(attachment)) {
+            console.log(`Attachment is document`);
+            await this.bot.sendDocument(
+                chatId, 
+                attachment.file_id,
+                {
+                    caption: caption,
+                    parse_mode: parseMode,
+                    disable_notification: disableNotification,
+                    reply_markup: keyboard
+                }
+            )
             return
         }
-
-        await func(
-            chatId,
-            attachment.file_id,
-            {
-                caption: caption,
-                parse_mode: parseMode,
-                disable_notification: disableNotification,
-                reply_markup: keyboard
-            }
-        )
     }
 
     private isPhoto(doc: FileBase): doc is PhotoSize {

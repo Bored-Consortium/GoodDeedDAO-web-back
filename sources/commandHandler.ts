@@ -209,7 +209,12 @@ class CommandHandler {
         }
     
         console.log(`send photo to group ${config.GROUP_ID}`)
-        await this.bot.sendAttachment(config.GROUP_ID, answer, photo, keyboard, ParseMode.HTML, undefined, true).then();
+        try {
+            await this.bot.sendAttachment(config.GROUP_ID, answer, photo, keyboard, ParseMode.HTML, undefined, true).then();
+        } catch (err) {
+            console.log(err);
+        }
+
     }
     
     async video_received(chatId: number, username: string, video: Video, caption: string) {
